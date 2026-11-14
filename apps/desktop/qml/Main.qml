@@ -68,9 +68,9 @@ ApplicationWindow {
                         onClicked: backend.cancel_sign_in()
                     }
                     Button {
-                        text: qsTr("Clear local session")
+                        text: qsTr("Sign out")
                         visible: backend.account_authorized
-                        onClicked: backend.clear_account()
+                        onClicked: backend.sign_out()
                     }
                     BusyIndicator {
                         visible: backend.account_busy

@@ -86,6 +86,8 @@ pub enum AccountStatus {
     Exchanging,
     /// A Nearby permission was granted; certificate exchange remains unverified.
     Authorized,
+    /// Local sign-out completed. Provider-wide consent is separate.
+    SignedOut,
     /// A bounded session expired; reauthorization is required.
     Expired,
     /// A sanitized failure, including cancellation or provider denial.
@@ -101,6 +103,7 @@ impl AccountStatus {
             Self::WaitingForBrowser => "Complete sign-in in your browser. Choose a test account.".into(),
             Self::Exchanging => "Checking the permission returned by Google…".into(),
             Self::Authorized => "Quick Share permission granted. Device certificate exchange is still required; this device remains hidden.".into(),
+            Self::SignedOut => "Signed out. This device is hidden.".into(),
             Self::Expired => "The in-memory session expired. Sign in again.".into(),
             Self::Failed(error) => error.to_string(),
         }
@@ -313,6 +316,14 @@ impl Account {
             AccountStatus::Unconfigured
         };
     }
+
+    /// Sign out and cancel any pending browser attempt. Provider-wide grant
+    /// revocation is separate; Google browser cookies are not accessed.
+    pub fn sign_out(&mut self) {
+        self.pending = None;
+        self.session = None;
+        self.status = AccountStatus::SignedOut;
+    }
 }
 
 #[cfg(test)]
@@ -502,5 +513,25 @@ mod tests {
         account.poll();
         assert_eq!(account.status(), AccountStatus::Expired);
         assert!(account.session.is_none());
+    }
+
+    #[test]
+    fn sign_out_cancels_pending_login_and_stays_signed_out() {
+        let (pending, _) = PendingLogin::start(config(), Duration::from_secs(2), |_| {
+            panic!("must not exchange")
+        })
+        .unwrap();
+        let mut account = Account {
+            config: Some(config()),
+            pending: Some(pending),
+            session: None,
+            status: AccountStatus::WaitingForBrowser,
+        };
+        account.sign_out();
+        std::thread::sleep(Duration::from_millis(50));
+        account.poll();
+        assert_eq!(account.status(), AccountStatus::SignedOut);
+        assert!(account.session.is_none() && !account.busy());
+        assert!(account.configured());
     }
 }

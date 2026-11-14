@@ -1,28 +1,43 @@
 # Cargo dependency license inventory
 
-Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target-specific and build/dev dependencies; not every package is linked into every executable. Qt is outside Cargo and is reviewed separately in LICENSING.md. License expressions are package declarations, not a substitute for source/license-file review before distribution.
+Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target-specific and build/dev dependencies; not every package is linked into every executable. Qt and the vendored Google components are reviewed separately in LICENSING.md. License expressions are package declarations, not a substitute for source/license-file review before distribution.
 
 | Package | Version | Declared license |
 | --- | --- | --- |
+| aead | 0.5.2 | MIT OR Apache-2.0 |
+| aes | 0.8.4 | MIT OR Apache-2.0 |
+| aes-gcm | 0.10.3 | Apache-2.0 OR MIT |
+| aes-gcm-siv | 0.11.1 | MIT OR Apache-2.0 |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
+| autocfg | 1.5.1 | Apache-2.0 OR MIT |
+| base16ct | 0.2.0 | Apache-2.0 OR MIT |
 | base64 | 0.22.1 | MIT OR Apache-2.0 |
 | base64 | 0.23.1 | MIT OR Apache-2.0 |
+| base64ct | 1.8.3 | Apache-2.0 OR MIT |
 | bitflags | 2.13.2 | MIT OR Apache-2.0 |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 |
+| block-padding | 0.3.3 | MIT OR Apache-2.0 |
 | bumpalo | 3.20.4 | MIT OR Apache-2.0 |
 | bytes | 1.12.1 | MIT |
+| cbc | 0.1.2 | MIT OR Apache-2.0 |
 | cc | 1.11.2 | MIT OR Apache-2.0 |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.2.2 | MIT |
 | chacha20 | 0.10.2 | MIT OR Apache-2.0 |
+| cipher | 0.4.4 | MIT OR Apache-2.0 |
 | clang-format | 0.3.0 | MIT OR Apache-2.0 |
 | codespan-reporting | 0.11.1 | Apache-2.0 |
 | codespan-reporting | 0.13.1 | Apache-2.0 |
+| const-oid | 0.9.6 | Apache-2.0 OR MIT |
 | convert_case | 0.6.0 | MIT |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
 | cpufeatures | 0.3.1 | MIT OR Apache-2.0 |
+| crypto-bigint | 0.5.5 | Apache-2.0 OR MIT |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 |
+| ctr | 0.9.2 | MIT OR Apache-2.0 |
+| curve25519-dalek | 4.1.3 | BSD-3-Clause |
+| curve25519-dalek-derive | 0.1.1 | MIT/Apache-2.0 |
 | cxx | 1.0.198 | MIT OR Apache-2.0 |
 | cxx-build | 1.0.198 | MIT OR Apache-2.0 |
 | cxx-gen | 0.7.198 | MIT OR Apache-2.0 |
@@ -33,9 +48,19 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | cxx-qt-macro | 0.10.0 | MIT OR Apache-2.0 |
 | cxxbridge-flags | 1.0.198 | MIT OR Apache-2.0 |
 | cxxbridge-macro | 1.0.198 | MIT OR Apache-2.0 |
+| der | 0.7.10 | Apache-2.0 OR MIT |
 | digest | 0.10.7 | MIT OR Apache-2.0 |
 | displaydoc | 0.2.7 | MIT OR Apache-2.0 |
+| ecdsa | 0.16.9 | Apache-2.0 OR MIT |
+| ed25519 | 2.2.3 | Apache-2.0 OR MIT |
+| ed25519-dalek | 2.2.0 | BSD-3-Clause |
+| either | 1.19.0 | MIT OR Apache-2.0 |
+| elliptic-curve | 0.13.8 | Apache-2.0 OR MIT |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
+| errno | 0.3.15 | MIT OR Apache-2.0 |
+| fastrand | 2.5.0 | Apache-2.0 OR MIT |
+| ff | 0.13.1 | MIT/Apache-2.0 |
+| fiat-crypto | 0.2.9 | MIT OR Apache-2.0 OR BSD-1-Clause |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
 | foldhash | 0.2.0 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
@@ -48,7 +73,11 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | generic-array | 0.14.7 | MIT |
 | getrandom | 0.2.17 | MIT OR Apache-2.0 |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
+| ghash | 0.5.1 | Apache-2.0 OR MIT |
+| group | 0.13.0 | MIT/Apache-2.0 |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 |
+| hkdf | 0.12.4 | MIT OR Apache-2.0 |
+| hmac | 0.12.1 | MIT OR Apache-2.0 |
 | http | 1.5.0 | MIT OR Apache-2.0 |
 | http-body | 1.1.0 | MIT |
 | http-body-util | 0.1.5 | MIT |
@@ -67,23 +96,40 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | idna_adapter | 1.2.1 | Apache-2.0 OR MIT |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
 | indoc | 2.0.8 | MIT OR Apache-2.0 |
+| inout | 0.1.4 | MIT OR Apache-2.0 |
 | ipnet | 2.12.2 | MIT OR Apache-2.0 |
+| itertools | 0.15.0 | MIT OR Apache-2.0 |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
 | jobserver | 0.1.35 | MIT OR Apache-2.0 |
 | js-sys | 0.3.107 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
 | link-cplusplus | 1.0.12 | MIT OR Apache-2.0 |
+| linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
 | log | 0.4.35 | MIT OR Apache-2.0 |
 | lru-slab | 0.1.3 | MIT OR Apache-2.0 OR Zlib |
 | memchr | 2.8.3 | Unlicense OR MIT |
+| minimal-lexical | 0.2.1 | MIT/Apache-2.0 |
 | mio | 1.2.5 | MIT |
+| nom | 7.1.3 | MIT |
+| num-bigint | 0.4.8 | MIT OR Apache-2.0 |
+| num-integer | 0.1.47 | MIT OR Apache-2.0 |
+| num-traits | 0.2.19 | MIT OR Apache-2.0 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
+| opaque-debug | 0.3.1 | MIT OR Apache-2.0 |
+| p256 | 0.13.2 | Apache-2.0 OR MIT |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
+| pkcs8 | 0.10.2 | Apache-2.0 OR MIT |
+| polyval | 0.6.2 | Apache-2.0 OR MIT |
 | potential_utf | 0.1.6 | Unicode-3.0 |
 | ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 |
+| primeorder | 0.13.6 | Apache-2.0 OR MIT |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
+| prost | 0.14.6 | Apache-2.0 |
+| prost-derive | 0.14.6 | Apache-2.0 |
+| protobuf | 3.7.2 | MIT |
+| protobuf-support | 3.7.2 | MIT |
 | qt-build-utils | 0.10.0 | MIT OR Apache-2.0 |
 | quinn | 0.11.12 | MIT OR Apache-2.0 |
 | quinn-proto | 0.11.19 | MIT OR Apache-2.0 |
@@ -97,14 +143,18 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | rand_core | 0.6.4 | MIT OR Apache-2.0 |
 | rand_pcg | 0.10.2 | MIT OR Apache-2.0 |
 | reqwest | 0.12.28 | MIT OR Apache-2.0 |
+| rfc6979 | 0.4.0 | Apache-2.0 OR MIT |
 | ring | 0.17.14 | Apache-2.0 AND ISC |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT |
+| rustc_version | 0.4.1 | MIT OR Apache-2.0 |
+| rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustls | 0.23.46 | Apache-2.0 OR ISC OR MIT |
 | rustls-pki-types | 1.16.0 | MIT OR Apache-2.0 |
 | rustls-webpki | 0.103.17 | ISC |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 |
 | scratch | 1.0.9 | MIT OR Apache-2.0 |
+| sec1 | 0.7.3 | Apache-2.0 OR MIT |
 | semver | 1.0.28 | MIT OR Apache-2.0 |
 | serde | 1.0.229 | MIT OR Apache-2.0 |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 |
@@ -113,9 +163,11 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | serde_urlencoded | 0.7.1 | MIT/Apache-2.0 |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 |
 | shlex | 2.0.1 | MIT OR Apache-2.0 |
+| signature | 2.2.0 | Apache-2.0 OR MIT |
 | slab | 0.4.12 | MIT |
 | smallvec | 1.16.5 | MIT OR Apache-2.0 |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
+| spki | 0.7.3 | Apache-2.0 OR MIT |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | static_assertions | 1.1.0 | MIT OR Apache-2.0 |
 | subtle | 2.6.1 | BSD-3-Clause |
@@ -123,6 +175,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | syn | 3.0.10 | MIT OR Apache-2.0 |
 | sync_wrapper | 1.0.2 | Apache-2.0 |
 | synstructure | 0.14.0 | MIT |
+| tempfile | 3.27.0 | MIT OR Apache-2.0 |
 | termcolor | 1.4.1 | Unlicense OR MIT |
 | thiserror | 1.0.69 | MIT OR Apache-2.0 |
 | thiserror | 2.0.21 | MIT OR Apache-2.0 |
@@ -144,6 +197,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 |
 | unicode-width | 0.1.14 | MIT OR Apache-2.0 |
 | unicode-width | 0.2.3 | MIT OR Apache-2.0 |
+| universal-hash | 0.5.1 | MIT OR Apache-2.0 |
 | untrusted | 0.9.0 | ISC |
 | url | 2.5.8 | MIT OR Apache-2.0 |
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
@@ -174,6 +228,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-14. This includes target
 | windows_x86_64_gnullvm | 0.52.6 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 |
 | writeable | 0.6.4 | Unicode-3.0 |
+| x25519-dalek | 2.0.1 | BSD-3-Clause |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
 | zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |

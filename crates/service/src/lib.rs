@@ -46,6 +46,15 @@ impl Service {
         self.account.clear_session();
     }
 
+    /// Reset sharing state before discarding account credentials. Published
+    /// Quick Share resets discovery/connections and trust data at sign-out;
+    /// these adapters do not yet exist in this prototype. No public fallback.
+    pub fn sign_out(&mut self) {
+        self.visibility = Visibility::Hidden;
+        self.capabilities = Capabilities::default();
+        self.account.sign_out();
+    }
+
     /// Nonblocking observation of login progress and session expiry.
     pub fn poll_account(&mut self) {
         self.account.poll();
@@ -101,5 +110,22 @@ mod tests {
         let mut service = Service::default();
         assert!(service.set_visibility(Visibility::Contacts).is_err());
         assert_eq!(service.visibility(), Visibility::Hidden);
+    }
+
+    #[test]
+    fn sign_out_resets_trust_and_visibility_before_relogin() {
+        let mut service = Service {
+            capabilities: Capabilities {
+                account_certificates: true,
+                contacts: true,
+            },
+            ..Service::default()
+        };
+        service.set_visibility(Visibility::Contacts).unwrap();
+        service.sign_out();
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        assert_eq!(service.capabilities(), Capabilities::default());
+        assert_eq!(service.account_status(), AccountStatus::SignedOut);
+        assert!(service.set_visibility(Visibility::OwnDevices).is_err());
     }
 }

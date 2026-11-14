@@ -31,6 +31,8 @@ pub mod ffi {
         #[qinvokable]
         fn clear_account(self: Pin<&mut Backend>);
         #[qinvokable]
+        fn sign_out(self: Pin<&mut Backend>);
+        #[qinvokable]
         fn poll_account(self: Pin<&mut Backend>);
         #[qinvokable]
         fn load_config(self: Pin<&mut Backend>, url: &QUrl);
@@ -119,6 +121,13 @@ impl ffi::Backend {
         self.update_account();
     }
 
+    /// Sign out through the service so sharing state is reset before credentials.
+    pub fn sign_out(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.sign_out();
+        self.update_account();
+    }
+
     /// Update progress on the GUI thread without doing network IO there.
     pub fn poll_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
@@ -172,5 +181,12 @@ impl ffi::Backend {
         assert!(!self.rust().account_busy && !self.rust().account_authorized);
         assert_eq!(self.rust().service.visibility(), Visibility::Hidden);
         eprintln!("smoke: local sign-in cancelled; device remains hidden");
+        self.as_mut().sign_out();
+        assert_eq!(
+            self.rust().service.account_status(),
+            AccountStatus::SignedOut
+        );
+        assert_eq!(self.rust().service.visibility(), Visibility::Hidden);
+        eprintln!("smoke: signed out; device remains hidden");
     }
 }

@@ -1,0 +1,20 @@
+# Nearlane packaging manifest; original Rust sources are unchanged.
+[package]
+name = "crypto_provider_default"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+build = false
+autobenches = false
+autotests = false
+
+[dependencies]
+cfg-if = { workspace = true }
+crypto_provider_rustcrypto = { workspace = true, optional = true }
+
+[features]
+default = ["rustcrypto"]
+rustcrypto = ["dep:crypto_provider_rustcrypto"]
+boringssl = []
+std = ["crypto_provider_rustcrypto/std"]

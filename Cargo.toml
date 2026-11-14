@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "apps/*"]
+exclude = ["third_party/beto"]
 default-members = ["apps/cli"]
 
 [workspace.package]
@@ -17,6 +18,11 @@ nearlane-account = { path = "crates/account" }
 nearlane-protocol = { path = "crates/protocol" }
 nearlane-platform = { path = "crates/platform" }
 nearlane-service = { path = "crates/service" }
+nearlane-transfer = { path = "crates/transfer" }
+ukey2_connections = { path = "third_party/beto/ukey2_connections" }
+crypto_provider_rustcrypto = { path = "third_party/beto/crypto_provider_rustcrypto", features = ["std"] }
+prost = "0.14"
+tempfile = "3.24"
 base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"

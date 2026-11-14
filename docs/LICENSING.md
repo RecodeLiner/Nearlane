@@ -24,7 +24,8 @@ see NOTICE for acknowledgment.
 | --- | --- |
 | CXX-Qt 0.10 | MIT OR Apache-2.0; preserve its licenses and notices in distributions |
 | Qt Core, Gui, QML, Quick, Quick Controls | Open-source LGPL/GPL alternatives vary by module; use the LGPLv3 option for the selected modules, dynamic linking and redistribution compliance |
-| Google Nearby open-source code | Apache-2.0; not incorporated yet. Any future source/schema copies keep their copyright, license, NOTICE and modification notices |
+| Google Better Together Core | Apache-2.0; selected UKEY2/crypto Rust components incorporated in third_party/beto, pinned to 479289ef072b0880c0347d36937265e44f00f4ee. Original sources/notices are unchanged; packaging manifests are adapted and documented |
+| Google Nearby schemas | Apache-2.0; original Rust adapters follow published field numbers from revision 770a030be8fbebbcda5bf71ba718c35f5350c27c; provenance is recorded in NOTICE and source comments |
 | rquickshare / Packet | GPL-3.0 family; not incorporated. Copying implementation requires revisiting the licensing of the combined work |
 | Google Quick Share EXE/MSI/resources | Proprietary; downloaded only into ignored work/ for local examination; do not redistribute or embed |
 | Local desktop OAuth configuration | Local-only import into ignored work/private/ is explicitly authorized; never compiled or distributed. Application-identity/API authorization is separate from the license of Nearlane's original code |

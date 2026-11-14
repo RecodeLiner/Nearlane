@@ -1,0 +1,2 @@
+# Preserve the upstream generated protobuf bindings byte-for-byte.
+third_party/beto/ukey2_proto/src/ukey2_all_proto/*.rs whitespace=-blank-at-eof

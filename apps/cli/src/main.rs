@@ -9,6 +9,24 @@ use std::{
 fn run() -> Result<(), Box<dyn Error>> {
     match std::env::args().nth(1).as_deref() {
         Some("status") => println!("{}", nearlane_service::Service::default().status()),
+        Some("test-transfer") => {
+            let report = nearlane_transfer::run_loopback_self_test()?;
+            println!(
+                "Local encrypted Nearby transfer passed: {} bytes in {:.2}s",
+                report.summary.bytes,
+                report.elapsed.as_secs_f64()
+            );
+            let digest = report
+                .summary
+                .sha256
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>();
+            println!("Saved-file SHA-256 matched: {digest}");
+            println!(
+                "Owned loopback peers only. Android, certificates and private discovery are not tested."
+            );
+        }
         Some("inspect-auth-url") => {
             // Read from stdin so a captured authorization URL need not be put
             // in shell history or exposed as a command-line argument.
@@ -26,7 +44,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             println!("Redirect kind: {}", summary.redirect_kind);
         }
         _ => println!(
-            "Nearlane research CLI\n\n  nearlane status\n  nearlane inspect-auth-url  < URL-on-stdin\n\nNo discovery, account login or file transfer is enabled yet."
+            "Nearlane research CLI\n\n  nearlane status\n  nearlane inspect-auth-url  < URL-on-stdin\n  nearlane test-transfer\n\nPrivate discovery and Android transfers are not enabled yet."
         ),
     }
     Ok(())

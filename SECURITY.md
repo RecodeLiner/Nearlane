@@ -33,9 +33,23 @@ Bluetooth pairing. Receiving a signed-in account identifier does not prove
 contact certificate distribution works.
 
 Session persistence will require OS credential storage (Secret Service/Keychain/
-Windows), refresh/revocation handling and corresponding tests. Real transfer
-additionally needs reviewed UKEY2, certificate validation, filename/path
-containment and limits. Ordinary sign-in does not enable private-mode discovery.
+Windows), refresh/revocation handling and corresponding tests. Sign-out resets
+sharing visibility/trust before dropping the session and prevents late callbacks
+from restoring it. Provider-wide revocation is not performed as ordinary logout.
+
+The file engine uses pinned public Google UKEY2/D2D sources with RustCrypto.
+Framing bounds apply before allocation; a failed integrity/sequence check makes
+the channel unusable. This does not authenticate a Google contact: the production
+certificate/paired-key verifier is still missing, so only owned loopback test
+peers are connected. No file listener or discovery is advertised on the LAN.
+
+The initial receiver accepts one approved file, enforces size/ID/type/offset/EOF
+consistency, rejects remote paths/device names and stages into a private random
+file. Completion publishes without replacing existing paths, including symlinks.
+Earlier errors/cancellation drop staged files. A lost ACK can leave a complete
+file saved without confirmed delivery at the sender. Caller IO deadlines bound
+stalled reads/writes; cancellation is checked between frames. Resume, folders,
+multi-file transactions and production consent/space-management are not ready.
 
 Never upload account tokens or full traffic captures to public issues. This
 repository has no public remote or private reporting channel configured yet.

@@ -9,5 +9,15 @@ CXX-Qt's startup and QObject bridge documentation informed the Qt API integratio
 CXX-Qt: Copyright Klaralvdalens Datakonsult AB (KDAB), MIT OR Apache-2.0.
 https://github.com/KDAB/cxx-qt
 
+Selected Better Together Core Rust components (Google LLC, Apache-2.0) are
+included under third_party/beto. Original copyright notices are preserved.
+https://beto-core.googlesource.com/beto-core/
+Pinned revision: 479289ef072b0880c0347d36937265e44f00f4ee
+Only packaging manifests are adapted; see third_party/beto/README.md and LICENSE.
+
+Original wire adapters follow the published google/nearby protobuf schemas
+(Google LLC, Apache-2.0), revision 770a030be8fbebbcda5bf71ba718c35f5350c27c.
+https://github.com/google/nearby
+
 No proprietary Google binaries/resources, embedded client credentials, or source
 from GPL-only sharing clients are included in this repository.

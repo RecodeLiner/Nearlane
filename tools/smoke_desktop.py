@@ -52,6 +52,7 @@ def check(binary, args, config):
             or "smoke: QML loaded" not in output
             or "smoke: policy checked; device remains hidden" not in output
             or "smoke: local sign-in cancelled; device remains hidden" not in output
+            or "smoke: signed out; device remains hidden" not in output
             or any(error in output for error in errors)
         ):
             print(f"FAIL ({style or 'session style'}): exit {result.returncode}", file=sys.stderr)

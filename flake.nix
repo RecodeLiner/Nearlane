@@ -39,6 +39,8 @@
             install -Dm644 LICENSE-MIT "$out/share/licenses/nearlane/LICENSE-MIT"
             install -Dm644 LICENSE-APACHE "$out/share/licenses/nearlane/LICENSE-APACHE"
             install -Dm644 NOTICE "$out/share/licenses/nearlane/NOTICE"
+            install -Dm644 third_party/beto/LICENSE "$out/share/licenses/nearlane/beto-LICENSE"
+            install -Dm644 third_party/beto/README.md "$out/share/licenses/nearlane/beto-PROVENANCE.md"
           '';
           meta = {
             description = "Independent Quick Share client research prototype";

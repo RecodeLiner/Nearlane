@@ -12,7 +12,7 @@ desktop (Qt/QML) ──> service ──> core
                       └─────> account ──> auth
 cli ──────────────> service
  └────────────────> auth
-protocol (independent; not connected to service yet)
+cli ──────────────> transfer ──> protocol ──> Google UKEY2 + RustCrypto
 ```
 
 Each directory under crates/ is a Cargo package with an independent compilation
@@ -40,6 +40,18 @@ non-UI Rust packages forbid unsafe code.
 3. Certificate publication/download, then real Contacts/OwnDevices handshake.
 4. One small file exchanged with Android while public visibility remains off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.
+
+The encrypted file engine now streams a single file in bounded Nearby payloads,
+with a sharing introduction/response subset and receiver acknowledgement. Its
+loopback harness verifies two process-owned peers, saves without overwriting and
+checks the reread digest. This is not the Android milestone: production discovery,
+Nearby connection setup, certificate/paired-key verification and lifecycle remain
+unconnected. The desktop does not advertise a fake receiver or enable Contacts.
+
+Sign-out is owned by the service: reset visibility/trust, then cancel the browser
+attempt and drop the account session. Future discovery/connections/certificate
+adapters must be shut down there, following Google's published service lifecycle.
+Provider-wide OAuth revocation is distinct from ordinary device sign-out.
 
 Milestone 2 is not solved by discovering a string in a binary. Client allowlists,
 API provisioning or Google review may prevent it; no such restriction is assumed

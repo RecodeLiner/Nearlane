@@ -1,7 +1,10 @@
 //! Bounded framing for Nearby's length-prefixed transport.
 //!
-//! This does not yet implement UKEY2 or claim Quick Share interoperability.
-//! It handles the four-byte big-endian length envelope only.
+//! Framing, Google's published UKEY2/D2D adapter and a bounded payload subset.
+//! Encrypted transport alone does not establish contact/device identity.
+
+pub mod secure;
+pub mod wire;
 
 use std::io::{self, Read, Write};
 
@@ -10,10 +13,21 @@ pub const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
 /// Read one frame, refusing empty or oversized data before allocation.
 pub fn read_frame(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+    read_frame_bounded(reader, MAX_FRAME_BYTES)
+}
+
+/// Read with a stricter stage-specific bound, checked before allocation.
+pub fn read_frame_bounded(reader: &mut impl Read, max: usize) -> io::Result<Vec<u8>> {
+    if max == 0 || max > MAX_FRAME_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid frame bound",
+        ));
+    }
     let mut header = [0_u8; 4];
     reader.read_exact(&mut header)?;
     let length = u32::from_be_bytes(header) as usize;
-    if length == 0 || length > MAX_FRAME_BYTES {
+    if length == 0 || length > max {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid frame length",

@@ -2,7 +2,10 @@
 
 This experiment extends the static findings in 2026-11-14-auth.md through
 local-only examination/reuse of desktop parameters authorized for this research.
-No real account was signed in and no account token exchange was performed.
+On 2026-11-15 the application displayed “Quick Share permission granted”
+after browser login. Raw account tokens were not inspected as part
+of this observation. That validates the granted-scope path for this local setup;
+it is not a certificate API result or provider approval of an independent client.
 
 ## Static evidence
 
@@ -55,8 +58,8 @@ opening a browser or contacting Google.
 
 ## Remaining decisive checks
 
-1. Browser login with a dedicated test account: does Google return a code and
-   grant the exact permission? This remains untested at this stage.
+1. Successful browser login is recorded above, without raw account-token
+   inspection or callback/response captures.
 2. Authorized certificate publication/download and cryptographic device trust.
 3. A real private-mode handshake and file exchange against an authorized Android phone.
 
