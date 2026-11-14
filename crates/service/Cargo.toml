@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 nearlane-core.workspace = true
 nearlane-platform.workspace = true
+nearlane-account.workspace = true
 
 [lints]
 workspace = true

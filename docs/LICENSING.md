@@ -27,12 +27,31 @@ see NOTICE for acknowledgment.
 | Google Nearby open-source code | Apache-2.0; not incorporated yet. Any future source/schema copies keep their copyright, license, NOTICE and modification notices |
 | rquickshare / Packet | GPL-3.0 family; not incorporated. Copying implementation requires revisiting the licensing of the combined work |
 | Google Quick Share EXE/MSI/resources | Proprietary; downloaded only into ignored work/ for local examination; do not redistribute or embed |
+| Local desktop OAuth configuration | Local-only import into ignored work/private/ is explicitly authorized; never compiled or distributed. Application-identity/API authorization is separate from the license of Nearlane's original code |
 
 MIT/Apache licensing the application does not remove LGPL obligations for Qt.
 Before publishing binaries, inventory the exact Qt modules/plugins and transitive
 dependencies, include license texts and attributions, provide required source
 access, and permit replacement/relinking of LGPL components as applicable. Do not
 assume all Qt add-on modules are LGPL. Avoid static Qt linking for this prototype.
+
+## Local OAuth compatibility experiment
+
+The local interoperability experiment is explicitly authorized to read desktop
+application parameters from the examined official binary. No account cookies, account tokens
+or master tokens are extracted. The importer is original code; the extracted
+values remain outside Git, Nix source snapshots and compiled resources.
+
+This limits publication of Google's configuration; it does **not** establish
+permission to use Google's registered application identity. Google's OAuth policy
+requires an accurately represented app identity and allows suspension/revocation
+for misrepresentation. The browser consent page may identify the official Quick
+Share client even though Nearlane initiated the request; the experimental UI
+discloses that distinction. A redirect to Google's sign-in page does not prove
+provider approval, grant issuance or certificate API access. No claim is made
+that local-only storage resolves terms-of-service, trademark or legal questions.
+
+Primary policy: https://developers.google.com/identity/protocols/oauth2/policies
 
 ## Reducing avoidable disputes
 

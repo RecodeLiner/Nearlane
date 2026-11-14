@@ -15,8 +15,13 @@
   in ignored work/. Commit only original summaries, hashes and safe indicators.
 - No copying code from GPL-only projects into MIT/Apache code. Record provenance
   and preserve licenses/NOTICE for any licensed source incorporated later.
-- Do not reuse embedded Google client credentials. Third-party scope access must
-  be established with an authorized client configuration.
+- Local-only examination and reuse of the desktop OAuth configuration from the
+  downloaded official Google binary is explicitly authorized for personal
+  interoperability research. Keep it exclusively in ignored work/private/
+  with restrictive permissions; never embed it in code, Nix, fixtures or releases.
+  This exception does not authorize collecting cookies or anyone else's tokens,
+  impersonating account holders, bypassing consent, or publishing Google's
+  configuration.
 - Separate observed facts from static inference and untested hypotheses.
 - Do not use the primary Google account for exploratory authorization.
 - Test only authorized devices/accounts. No scanning or probing devices/accounts

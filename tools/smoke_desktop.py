@@ -2,10 +2,12 @@
 """Check QML loading and private-mode gating, with Qt diagnostics on stderr."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 
 def main():
@@ -15,10 +17,19 @@ def main():
     parser.add_argument("--native", action="store_true", help="briefly show a window on the desktop")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
+    with tempfile.TemporaryDirectory(prefix="nearlane-smoke-") as directory:
+        config = Path(directory) / "synthetic-client.json"
+        config.touch(mode=0o600)
+        config.write_text(json.dumps({"client_id": "synthetic-smoke-client"}))
+        return check(binary, args, config)
+
+
+def check(binary, args, config):
     for style in [None, "org.kde.desktop"] if args.kde else [None]:
         env = os.environ.copy()
         env.update(
             NEARLANE_SMOKE_TEST="1",
+            NEARLANE_OAUTH_CONFIG=str(config),
             QT_FORCE_STDERR_LOGGING="1",
             QT_LOGGING_RULES="*.warning=true",
             QT_QUICK_BACKEND="software",
@@ -40,12 +51,13 @@ def main():
             result.returncode != 0
             or "smoke: QML loaded" not in output
             or "smoke: policy checked; device remains hidden" not in output
+            or "smoke: local sign-in cancelled; device remains hidden" not in output
             or any(error in output for error in errors)
         ):
             print(f"FAIL ({style or 'session style'}): exit {result.returncode}", file=sys.stderr)
             print(output, file=sys.stderr)
             return 1
-        print(f"PASS ({style or 'session style'}): QML loaded, private-mode check passed")
+        print(f"PASS ({style or 'session style'}): QML loaded, local login cancelled, device hidden")
     return 0
 
 

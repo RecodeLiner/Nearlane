@@ -9,6 +9,7 @@ Dependency graph:
 ```text
 desktop (Qt/QML) ──> service ──> core
                       └─────> platform
+                      └─────> account ──> auth
 cli ──────────────> service
  └────────────────> auth
 protocol (independent; not connected to service yet)
@@ -34,7 +35,8 @@ non-UI Rust packages forbid unsafe code.
 ## Milestones
 
 1. Reproducible offline binary evidence, a buildable UI and isolated auth tests.
-2. Authorized third-party browser OAuth access to a suitable Nearby scope.
+2. Browser OAuth access to a suitable Nearby scope: the local runtime is now
+   implemented, but a real grant and provider permission remain unverified.
 3. Certificate publication/download, then real Contacts/OwnDevices handshake.
 4. One small file exchanged with Android while public visibility remains off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.

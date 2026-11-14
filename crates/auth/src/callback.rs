@@ -103,6 +103,7 @@ impl AuthorizationAttempt {
             .append_pair("state", &self.state)
             .append_pair("code_challenge", &pkce::challenge(&self.verifier))
             .append_pair("code_challenge_method", "S256")
+            .append_pair("prompt", "select_account")
             .append_pair("access_type", "offline");
         Ok(url)
     }
@@ -110,6 +111,17 @@ impl AuthorizationAttempt {
     /// Check origin, callback path, unique parameters and CSRF state.
     /// Returns code and verifier only after all checks pass. Both redact Debug.
     pub fn accept(self, callback: &str) -> Result<(AuthorizationCode, PkceVerifier), AuthError> {
+        let code = self.parse_callback(callback)?;
+        Ok((code, PkceVerifier(self.verifier)))
+    }
+
+    /// Validate a callback without consuming this attempt. A stray loopback
+    /// request must not destroy a legitimate browser login in progress.
+    pub fn validate_callback(&self, callback: &str) -> Result<(), AuthError> {
+        self.parse_callback(callback).map(|_| ())
+    }
+
+    fn parse_callback(&self, callback: &str) -> Result<AuthorizationCode, AuthError> {
         let url = bounded_url(callback)?;
         if url.scheme() != self.redirect.scheme()
             || url.host_str() != self.redirect.host_str()
@@ -133,10 +145,7 @@ impl AuthorizationAttempt {
             .get("code")
             .filter(|s| !s.is_empty())
             .ok_or(AuthError::InvalidParameters)?;
-        Ok((
-            AuthorizationCode(Zeroizing::new(code.clone())),
-            PkceVerifier(self.verifier),
-        ))
+        Ok(AuthorizationCode(Zeroizing::new(code.clone())))
     }
 }
 

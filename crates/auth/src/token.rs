@@ -67,6 +67,7 @@ pub struct TokenGrant {
     access_token: Zeroizing<String>,
     refresh_token: Option<Zeroizing<String>>,
     expires_in: u64,
+    sharing_permission: bool,
 }
 
 impl TokenGrant {
@@ -82,6 +83,7 @@ impl TokenGrant {
             return Err(AuthError::InvalidGrant);
         }
         let scope = json["scope"].as_str().ok_or(AuthError::InvalidGrant)?;
+        let sharing_permission = scope.split_whitespace().any(|s| s == NEARBY_SCOPE);
         if !scope
             .split_whitespace()
             .any(|s| matches!(s, NEARBY_SCOPE | NEARBY_SDK_SCOPE))
@@ -116,6 +118,7 @@ impl TokenGrant {
             access_token: Zeroizing::new(access_token),
             refresh_token,
             expires_in,
+            sharing_permission,
         })
     }
 
@@ -130,6 +133,11 @@ impl TokenGrant {
     /// Lifetime reported by the provider; the service must enforce expiry.
     pub fn expires_in(&self) -> u64 {
         self.expires_in
+    }
+
+    /// Whether the exact sharing permission was granted (SDK-only is distinct).
+    pub fn has_sharing_permission(&self) -> bool {
+        self.sharing_permission
     }
 }
 

@@ -6,6 +6,7 @@ fn main() {
     )
     .qt_module("QuickControls2")
     .qt_module("Network")
+    .include_dir("src")
     .file("src/backend.rs")
     .build();
 }

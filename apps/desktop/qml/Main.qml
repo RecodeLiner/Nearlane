@@ -1,14 +1,15 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import org.nearlane.app
 
 ApplicationWindow {
     id: window
     width: 760
-    height: 520
+    height: 600
     minimumWidth: 560
-    minimumHeight: 420
+    minimumHeight: 520
     visible: true
     title: "Nearlane"
 
@@ -24,9 +25,15 @@ ApplicationWindow {
         }
     }
 
-    ColumnLayout {
+    ScrollView {
+        id: page
         anchors.fill: parent
         anchors.margins: 28
+        contentWidth: availableWidth
+        clip: true
+
+    ColumnLayout {
+        width: page.availableWidth
         spacing: 18
         Label { text: qsTr("Your devices, nearby"); font.pixelSize: 28; font.bold: true }
         Label {
@@ -39,18 +46,80 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 12
-                Label { text: qsTr("Account connection is not ready"); font.bold: true }
                 Label {
-                    text: qsTr("This development build stays hidden. Contact verification and file transfers are not enabled yet.")
+                    text: backend.account_authorized ? qsTr("Quick Share permission granted") : qsTr("Connect your Google account")
+                    font.bold: true
+                }
+                Label {
+                    text: backend.account_status
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                 }
-                Button { text: qsTr("Check contacts support"); onClicked: backend.check_contacts() }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Button {
+                        text: qsTr("Sign in with Google")
+                        enabled: backend.account_configured && !backend.account_busy && !backend.account_authorized
+                        onClicked: backend.sign_in()
+                    }
+                    Button {
+                        text: qsTr("Cancel")
+                        visible: backend.account_busy
+                        onClicked: backend.cancel_sign_in()
+                    }
+                    Button {
+                        text: qsTr("Clear local session")
+                        visible: backend.account_authorized
+                        onClicked: backend.clear_account()
+                    }
+                    BusyIndicator {
+                        visible: backend.account_busy
+                        running: visible
+                        implicitWidth: 28
+                        implicitHeight: 28
+                    }
+                }
+                Button {
+                    text: qsTr("Select local sign-in configuration…")
+                    visible: !backend.account_configured
+                    onClicked: configDialog.open()
+                }
+                Label {
+                    text: qsTr("Sign-in opens your browser. Use a test account for this experimental build. Session tokens stay in memory and are cleared when Nearlane closes.")
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
+                Label {
+                    text: qsTr("This compatibility experiment uses the locally imported Google desktop configuration. Google's consent screen may name Quick Share. Nearlane is an independent app.")
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
             }
         }
         Label { text: backend.status; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: palette.mid }
-        Item { Layout.fillHeight: true }
+        Label {
+            text: qsTr("Signing in does not enable file sharing yet. Contact verification and transfers are still being implemented.")
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+        }
         Label { text: qsTr("Independent project. Not affiliated with Google or Samsung."); font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+    }
+    }
+
+    FileDialog {
+        id: configDialog
+        title: qsTr("Select local sign-in configuration")
+        nameFilters: [qsTr("JSON files (*.json)")]
+        onAccepted: backend.load_config(selectedFile)
+    }
+
+    Timer {
+        interval: 100
+        running: true
+        repeat: true
+        onTriggered: backend.poll_account()
     }
 
     Timer {

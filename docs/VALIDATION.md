@@ -7,12 +7,14 @@ Rust 1.85 is the declared minimum; it has not been tested locally.
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 17 tests pass.
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 25 tests pass,
+  including local TCP callback and cancellation during code exchange.
 - `cargo clippy --locked --workspace --exclude nearlane-desktop --all-targets -- -D warnings`
 - `cargo build --locked -p nearlane-desktop`
 - Offscreen Qt smoke run: QML loads, the timer invokes Rust's private-mode check,
+  a synthetic-config browser attempt binds/cancels without opening the browser,
   the service remains hidden, and the application exits successfully.
-- `python3 -m unittest discover -s tools -p 'test_*.py'`: 4 parser-boundary tests.
+- `python3 -m unittest discover -s tools -p 'test_*.py'`: 7 parser/import tests.
 - `nix build`: a release package was built and its CLI runs from the Nix store.
 
 UI smoke invocation for the installed package (no forced Fusion theme and no
@@ -39,6 +41,10 @@ Upstream reference: [Kirigami StyleSelector, v6.31.0](https://github.com/KDE/kir
 This checks loading and QML/Rust integration, not a visual screenshot or a real
 interactive desktop session. Windows/macOS execution has not been validated locally. Radio, firewall, Google login,
 certificate API access and Android file transfers remain untested/unimplemented.
+The browser callback/HTTPS code path is implemented; a real browser-initiated
+Google grant has not been tested at this stage. The public-endpoint request used no account
+or cookies and reached Google's login page for the sharing scope. See
+[the experiment record](research/oauth-runtime.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package
 is optimized. Tests do not use real account credentials or proprietary fixtures.

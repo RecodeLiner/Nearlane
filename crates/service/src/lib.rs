@@ -1,15 +1,71 @@
 //! Application state shared by CLI and Qt, with explicit private-mode gating.
 
+use nearlane_account::Account;
+pub use nearlane_account::{AccountStatus, BrowserAuthorization, LoginError};
 use nearlane_core::{Capabilities, UnavailableVisibility, Visibility};
 
 /// Initial implementation reports unsupported features honestly and stays hidden.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Service {
     visibility: Visibility,
     capabilities: Capabilities,
+    account: Account,
+}
+
+impl Default for Service {
+    fn default() -> Self {
+        let path = std::env::var_os("NEARLANE_OAUTH_CONFIG")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("work/private/oauth-client.json"));
+        Self {
+            visibility: Visibility::Hidden,
+            capabilities: Capabilities::default(),
+            account: Account::from_local_config(&path),
+        }
+    }
 }
 
 impl Service {
+    /// Load application configuration only, discarding any previous local session.
+    pub fn load_account_config(&mut self, path: &std::path::Path) {
+        self.account = Account::from_local_config(path);
+    }
+
+    /// Start a browser login without changing discovery or sharing permissions.
+    pub fn begin_sign_in(&mut self) -> Result<BrowserAuthorization, LoginError> {
+        self.account.begin()
+    }
+
+    /// Cancel the current attempt and discard any late token response.
+    pub fn cancel_sign_in(&mut self, reason: LoginError) {
+        self.account.cancel(reason);
+    }
+
+    /// Forget only the local in-memory session; provider grants are not revoked.
+    pub fn clear_account(&mut self) {
+        self.account.clear_session();
+    }
+
+    /// Nonblocking observation of login progress and session expiry.
+    pub fn poll_account(&mut self) {
+        self.account.poll();
+    }
+
+    /// Account authorization status, separate from device trust/capabilities.
+    pub fn account_status(&self) -> AccountStatus {
+        self.account.status()
+    }
+
+    /// Whether local application parameters are available for browser login.
+    pub fn account_configured(&self) -> bool {
+        self.account.configured()
+    }
+
+    /// Whether a browser login or code exchange is pending.
+    pub fn account_busy(&self) -> bool {
+        self.account.busy()
+    }
+
     /// Current effective policy; never a speculative UI selection.
     pub fn visibility(&self) -> Visibility {
         self.visibility
