@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Nearlane
+Comment=Independent nearby file sharing research prototype
+Exec=nearlane-desktop
+Terminal=false
+Categories=Network;FileTransfer;

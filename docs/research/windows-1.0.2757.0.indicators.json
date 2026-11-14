@@ -1,0 +1,199 @@
+{
+  "artifact": "NearbyShareExe",
+  "sha256": "4364301891d44e7b1ee84685874f559cda405ccdfcb0637df5f7ec223cb806c4",
+  "size": 47606936,
+  "machine": "0x8664",
+  "pe_timestamp": 1792141847,
+  "image_base": "0x140000000",
+  "sections": [
+    {
+      "name": ".text",
+      "rva": 65536,
+      "virtual_size": 18542454,
+      "raw_offset": 1536,
+      "raw_size": 18542592
+    },
+    {
+      "name": ".rdata",
+      "rva": 18612224,
+      "virtual_size": 25936488,
+      "raw_offset": 18544128,
+      "raw_size": 25936896
+    },
+    {
+      "name": ".data",
+      "rva": 44564480,
+      "virtual_size": 827488,
+      "raw_offset": 44481024,
+      "raw_size": 754176
+    },
+    {
+      "name": ".pdata",
+      "rva": 45416448,
+      "virtual_size": 1052532,
+      "raw_offset": 45235200,
+      "raw_size": 1052672
+    },
+    {
+      "name": ".data.re",
+      "rva": 46530560,
+      "virtual_size": 312264,
+      "raw_offset": 46287872,
+      "raw_size": 312320
+    },
+    {
+      "name": ".fptable",
+      "rva": 46858240,
+      "virtual_size": 256,
+      "raw_offset": 46600192,
+      "raw_size": 512
+    },
+    {
+      "name": ".tls",
+      "rva": 46923776,
+      "virtual_size": 897,
+      "raw_offset": 46600704,
+      "raw_size": 1024
+    },
+    {
+      "name": "_RDATA",
+      "rva": 46989312,
+      "virtual_size": 500,
+      "raw_offset": 46601728,
+      "raw_size": 512
+    },
+    {
+      "name": "flags_he",
+      "rva": 47054848,
+      "virtual_size": 5361,
+      "raw_offset": 46602240,
+      "raw_size": 5632
+    },
+    {
+      "name": "la_upb_A",
+      "rva": 47120384,
+      "virtual_size": 184,
+      "raw_offset": 46607872,
+      "raw_size": 512
+    },
+    {
+      "name": "malloc_h",
+      "rva": 47185920,
+      "virtual_size": 680,
+      "raw_offset": 46608384,
+      "raw_size": 1024
+    },
+    {
+      "name": "protodes",
+      "rva": 47251456,
+      "virtual_size": 654672,
+      "raw_offset": 46609408,
+      "raw_size": 654848
+    },
+    {
+      "name": ".rsrc",
+      "rva": 47906816,
+      "virtual_size": 177560,
+      "raw_offset": 47264256,
+      "raw_size": 177664
+    },
+    {
+      "name": ".reloc",
+      "rva": 48103424,
+      "virtual_size": 154524,
+      "raw_offset": 47441920,
+      "raw_size": 154624
+    }
+  ],
+  "indicators": {
+    "authorization_endpoint": [
+      {
+        "file_offset": "0x2568748",
+        "virtual_address": "0x142579148"
+      },
+      {
+        "file_offset": "0x2ce8460",
+        "virtual_address": "0x142d85060"
+      }
+    ],
+    "token_endpoint": [
+      {
+        "file_offset": "0x2568720",
+        "virtual_address": "0x142579120"
+      },
+      {
+        "file_offset": "0x2ce8429",
+        "virtual_address": "0x142d85029"
+      }
+    ],
+    "nearby_scope": [
+      {
+        "file_offset": "0x25687a0",
+        "virtual_address": "0x1425791a0"
+      }
+    ],
+    "nearby_sdk_scope": [
+      {
+        "file_offset": "0x2568848",
+        "virtual_address": "0x142579248"
+      }
+    ],
+    "nearby_api": [
+      {
+        "file_offset": "0x248db28",
+        "virtual_address": "0x14249e528"
+      }
+    ],
+    "loopback_redirect": [
+      {
+        "file_offset": "0x26b5a30",
+        "virtual_address": "0x1426c6430"
+      }
+    ],
+    "pkce_challenge": [
+      {
+        "file_offset": "0x2683658",
+        "virtual_address": "0x142694058"
+      }
+    ],
+    "pkce_verifier": [
+      {
+        "file_offset": "0x262f5e0",
+        "virtual_address": "0x14263ffe0"
+      },
+      {
+        "file_offset": "0x268b8f0",
+        "virtual_address": "0x14269c2f0"
+      },
+      {
+        "file_offset": "0x2ce8670",
+        "virtual_address": "0x142d85270"
+      }
+    ],
+    "oauth_config_pkce_field": [
+      {
+        "file_offset": "0x2ce84b1",
+        "virtual_address": "0x142d850b1"
+      }
+    ],
+    "authorization_code_grant": [
+      {
+        "file_offset": "0x262f638",
+        "virtual_address": "0x142640038"
+      }
+    ],
+    "refresh_grant": [
+      {
+        "file_offset": "0x257271f",
+        "virtual_address": "0x14258311f"
+      }
+    ],
+    "third_party_config": [
+      {
+        "file_offset": "0x24be1c8",
+        "virtual_address": "0x1424cebc8"
+      }
+    ]
+  },
+  "interpretation": "Static indicators only; execution, PKCE activation and third-party authorization are NOT verified."
+}

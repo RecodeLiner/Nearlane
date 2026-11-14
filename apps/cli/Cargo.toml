@@ -1,0 +1,18 @@
+[package]
+name = "nearlane-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "nearlane"
+path = "src/main.rs"
+
+[dependencies]
+nearlane-auth.workspace = true
+nearlane-service.workspace = true
+
+[lints]
+workspace = true
