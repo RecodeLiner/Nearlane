@@ -118,6 +118,44 @@ ApplicationWindow {
                 }
             }
         }
+        Frame {
+            Layout.fillWidth: true
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 12
+                Label { text: qsTr("Nearby devices"); font.bold: true }
+                Label { text: backend.discovery_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                RowLayout {
+                    Button {
+                        text: qsTr("Find my devices")
+                        enabled: backend.discovery_available && !backend.account_busy && !backend.discovery_busy
+                        onClicked: backend.find_own_devices()
+                    }
+                    Button {
+                        text: qsTr("Stop search")
+                        visible: backend.discovery_busy
+                        onClicked: backend.cancel_discovery()
+                    }
+                    BusyIndicator { visible: backend.discovery_busy; running: visible; implicitWidth: 28; implicitHeight: 28 }
+                }
+                Repeater {
+                    model: backend.own_devices
+                    Label {
+                        required property string modelData
+                        text: modelData
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                    }
+                }
+                Label {
+                    text: qsTr("Use the same local network and Google account on both devices. Keep the phone unlocked with Quick Share open and its existing private visibility. This build searches Wi-Fi LAN only; it does not use Everyone visibility.")
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
+            }
+        }
         Label { text: backend.status; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: palette.mid }
         Label {
             text: qsTr("Signing in does not enable file sharing yet. Contact verification and transfers are still being implemented.")

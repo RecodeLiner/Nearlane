@@ -7,11 +7,12 @@ Rust 1.85 is the declared minimum; it has not been tested locally.
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 51 tests pass,
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 58 tests pass,
   including local OAuth callbacks, sign-out, encrypted file streaming,
   tampering/replay, size/offset/path checks and non-overwrite behavior, plus
   public Google certificate crypto vectors, own-device-only publication,
-  bounded pagination/cache replacement and late setup/cleanup completion.
+  bounded pagination/cache replacement and late setup/cleanup completion,
+  synthetic private advertisements and role/session-bound paired-key proof frames.
 - 22 upstream UKEY2 unit tests pass with the adapted public RustCrypto package.
 - `cargo run --locked -p nearlane-cli -- test-transfer`: 3,145,851 bytes transfer
   over owned loopback peers; the reread saved-file SHA-256 matches the source.
@@ -46,18 +47,23 @@ the journal, making a captured stderr appear clean.
 Upstream reference: [Kirigami StyleSelector, v6.31.0](https://github.com/KDE/kirigami/blob/v6.31.0/src/platform/styleselector.cpp).
 
 This checks loading and QML/Rust integration, not a visual screenshot or a real
-interactive desktop session. Windows/macOS execution has not been validated locally. Radio, firewall, certificate API access and
-Android file transfers remain untested/unimplemented. The local file engine is
-implemented, but the self-test starts directly at UKEY2 and is not a complete Nearby
-connection or Android/private-mode session. The application displayed “Quick Share
-permission granted” after browser login on 2026-11-15. Those raw account tokens were not
-directly inspected or manipulated; authenticated certificate API access remains
-untested. The unauthenticated public-endpoint requests used no account or cookies: OAuth
-reached Google's login page, and a separate empty HTTP/2 gRPC request received
-UNAUTHENTICATED status 16 from Nearby Identity. The app now implements temporary
-own-device publication and queries, but never enables discovery/file sharing on that
-basis alone. See [the login experiment](research/oauth-runtime.md) and [the
-certificate/API evidence](research/identity-certificates.md).
+interactive desktop session. Windows/macOS execution has not been validated locally. Radio, firewall, Bluetooth discovery and
+Android file transfers remain untested/unimplemented. Wi-Fi LAN discovery is implemented
+but a real phone discovery result is not yet confirmed. Tests use decoded synthetic
+ServiceInfo records and do not scan the LAN. The local file engine is implemented, but
+the self-test starts directly at UKEY2 and is not a complete Nearby connection or
+Android/private-mode session. The application displayed “Quick Share permission granted”
+after browser login on 2026-11-15. Those raw account tokens were not directly inspected
+or manipulated. Successful registration and query were subsequently confirmed: 9
+own-device certificates, 6 active, 0 malformed. That establishes authenticated API
+exchange in the authorized account session, not Android peer verification. The
+unauthenticated public-endpoint requests used no account or cookies: OAuth reached
+Google's login page, and a separate empty HTTP/2 gRPC request received UNAUTHENTICATED
+status 16 from Nearby Identity. The app now implements temporary own-device publication
+and queries. Explicit device search starts a bounded LAN search; it never publishes a
+receiver or enables file sharing on that basis alone. See [the login
+experiment](research/oauth-runtime.md) and [the certificate/API
+evidence](research/identity-certificates.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package
 is optimized. Tests do not use real account credentials or proprietary fixtures.

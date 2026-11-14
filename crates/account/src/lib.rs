@@ -267,6 +267,21 @@ impl Account {
         self.private.busy()
     }
 
+    /// In-memory trusted API cache for the owned-device discovery worker only.
+    /// Never serialize these credentials or expose them to QML/logs.
+    pub fn own_device_certificates(&self) -> Vec<Arc<nearlane_certificates::RemoteCertificate>> {
+        if self.status == AccountStatus::Authorized
+            && self
+                .session
+                .as_ref()
+                .is_some_and(|s| Instant::now() < s.expires_at)
+        {
+            self.private.remote_certificates()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Publish temporary own-device certificates and obtain a bounded cache from
     /// Google's fixed API. Only an explicit service command starts this operation.
     pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {

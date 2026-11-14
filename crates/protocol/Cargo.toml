@@ -7,11 +7,15 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+nearlane-certificates.workspace = true
 ukey2_connections.workspace = true
 crypto_provider_rustcrypto.workspace = true
 prost.workspace = true
 subtle.workspace = true
 zeroize.workspace = true
+
+[dev-dependencies]
+nearlane-core.workspace = true
 
 [lints]
 workspace = true

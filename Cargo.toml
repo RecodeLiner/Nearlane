@@ -20,6 +20,8 @@ nearlane-platform = { path = "crates/platform" }
 nearlane-service = { path = "crates/service" }
 nearlane-transfer = { path = "crates/transfer" }
 nearlane-certificates = { path = "crates/certificates" }
+nearlane-discovery = { path = "crates/discovery" }
+mdns-sd = "0.21"
 aes = "0.8"
 aes-gcm = "0.10"
 ctr = "0.9"

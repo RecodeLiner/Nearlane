@@ -67,6 +67,23 @@ the channel unusable. This does not authenticate a Google contact: the productio
 certificate/paired-key verifier is still missing, so only owned loopback test
 peers are connected. No file listener or discovery is advertised on the LAN.
 
+Explicit device search browses only the NearbySharing DNS-SD service
+for 20 seconds, with limits of 1024 events and 32 candidate endpoints. It does not
+make TCP connections, register a service or open a file receiver. The initial
+adapter retains private/link-local IPv4 candidates only. Sharing advertisement
+metadata must pass current own-device certificate commitment and AES-GCM checks;
+publicly advertised names are never used. Candidate names use plain-text QML
+rendering. Matching metadata is not live identity proof: an old advertisement
+can be replayed, and connection destinations still require paired-key validation.
+Stop, sign-out, session expiry and retry clear candidates and cancel discovery;
+late results cannot restore them. Certificate references held by a cancelled
+worker are released as it finishes, rather than copied to disk or exposed to UI.
+
+The local file harness now exchanges paired-key proofs bound to UKEY2 token and
+sender/receiver roles, plus explicit successful peer results. Credentials are
+synthetic and locally distributed by the harness. This tests the new verifier
+and frame shapes, not Google-backed peer identity or a full Android connection.
+
 The initial receiver accepts one approved file, enforces size/ID/type/offset/EOF
 consistency, rejects remote paths/device names and stages into a private random
 file. Completion publishes without replacing existing paths, including symlinks.

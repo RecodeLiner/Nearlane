@@ -5,16 +5,19 @@ use std::{
     fs::File,
     io::{Read, Write},
     net::{Ipv4Addr, TcpListener, TcpStream},
-    sync::mpsc,
     time::{Duration, Instant},
 };
 
+use nearlane_certificates::{
+    DeviceMetadata, LocalCertificate, PeerRole, RemoteCertificate, now_seconds,
+};
+use nearlane_core::Visibility;
 use nearlane_protocol::{
+    paired,
     secure::SecureChannel,
     wire::{self, MAX_CHUNK, PayloadChunk, PayloadEvent, PayloadKind, ShareMessage},
 };
 use sha2::{Digest as _, Sha256};
-use zeroize::Zeroizing;
 
 use crate::{Cancellation, FileOffer, FileSummary, TransferError, receive_file, send_file};
 
@@ -37,6 +40,11 @@ pub fn run_loopback_self_test() -> Result<SelfTestReport, TransferError> {
 
 fn run_with_size(size: u64) -> Result<SelfTestReport, TransferError> {
     let start = Instant::now();
+    // Synthetic identities owned by this harness. Distribution here is local
+    // setup, not a Google account API or a claim of Android interoperability.
+    let now = now_seconds().map_err(|_| TransferError::PeerVerification)?;
+    let (sender_private, sender_public) = synthetic_identity("sender", now)?;
+    let (receiver_private, receiver_public) = synthetic_identity("receiver", now)?;
     let root = tempfile::tempdir()?;
     let source_path = root.path().join("source.bin");
     let mut source = File::create(&source_path)?;
@@ -60,8 +68,6 @@ fn run_with_size(size: u64) -> Result<SelfTestReport, TransferError> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
     listener.set_nonblocking(true)?;
     let address = listener.local_addr()?;
-    let (server_auth_tx, server_auth_rx) = mpsc::sync_channel(1);
-    let (client_auth_tx, client_auth_rx) = mpsc::sync_channel::<Zeroizing<Vec<u8>>>(1);
     let server = std::thread::spawn(move || -> Result<FileSummary, TransferError> {
         let deadline = Instant::now() + Duration::from_secs(5);
         let stream = loop {
@@ -77,17 +83,29 @@ fn run_with_size(size: u64) -> Result<SelfTestReport, TransferError> {
         };
         configure(&stream)?;
         let mut channel = SecureChannel::respond(stream)?;
-        server_auth_tx
-            .send(Zeroizing::new(channel.authentication_token().to_vec()))
-            .map_err(|_| TransferError::Worker)?;
-        let client_auth = client_auth_rx
-            .recv_timeout(Duration::from_secs(5))
-            .map_err(|_| TransferError::Worker)?;
-        if !channel.matches_authentication(&client_auth) {
-            return Err(TransferError::PeerVerification);
-        }
-        // This approval belongs only to the two owned test peers above. Real
-        // devices require the paired-key/certificate verifier and explicit consent.
+        let proof = receive_control(&mut channel)?;
+        paired::verify_proof(
+            &proof,
+            &receiver_private,
+            &sender_public,
+            channel.authentication_token(),
+            PeerRole::Receiver,
+            now,
+        )
+        .map_err(|_| TransferError::PeerVerification)?;
+        let proof = paired::encode_proof(
+            &receiver_private,
+            &sender_public,
+            channel.authentication_token(),
+            PeerRole::Receiver,
+            now,
+        )
+        .map_err(|_| TransferError::PeerVerification)?;
+        send_bytes(&mut channel, 102, proof)?;
+        paired::require_success(&receive_control(&mut channel)?)
+            .map_err(|_| TransferError::PeerVerification)?;
+        send_bytes(&mut channel, 104, paired::encode_result(true))?;
+        // Synthetic consent is limited to these two process-owned peers.
         let ShareMessage::Introduction(offer) =
             wire::decode_share(&receive_control(&mut channel)?)?
         else {
@@ -125,15 +143,28 @@ fn run_with_size(size: u64) -> Result<SelfTestReport, TransferError> {
     let stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))?;
     configure(&stream)?;
     let mut channel = SecureChannel::initiate(stream)?;
-    let server_auth = server_auth_rx
-        .recv_timeout(Duration::from_secs(5))
-        .map_err(|_| TransferError::Worker)?;
-    if !channel.matches_authentication(&server_auth) {
-        return Err(TransferError::PeerVerification);
-    }
-    client_auth_tx
-        .send(Zeroizing::new(channel.authentication_token().to_vec()))
-        .map_err(|_| TransferError::Worker)?;
+    let proof = paired::encode_proof(
+        &sender_private,
+        &receiver_public,
+        channel.authentication_token(),
+        PeerRole::Sender,
+        now,
+    )
+    .map_err(|_| TransferError::PeerVerification)?;
+    send_bytes(&mut channel, 101, proof)?;
+    let proof = receive_control(&mut channel)?;
+    paired::verify_proof(
+        &proof,
+        &sender_private,
+        &receiver_public,
+        channel.authentication_token(),
+        PeerRole::Sender,
+        now,
+    )
+    .map_err(|_| TransferError::PeerVerification)?;
+    send_bytes(&mut channel, 103, paired::encode_result(true))?;
+    paired::require_success(&receive_control(&mut channel)?)
+        .map_err(|_| TransferError::PeerVerification)?;
     let offer = FileOffer {
         name: "received.bin".into(),
         size,
@@ -168,12 +199,39 @@ fn configure(stream: &TcpStream) -> std::io::Result<()> {
     stream.set_nodelay(true)
 }
 
+fn synthetic_identity(
+    name: &str,
+    now: i64,
+) -> Result<(LocalCertificate, RemoteCertificate), TransferError> {
+    let local = LocalCertificate::generate(
+        DeviceMetadata::named(name).map_err(|_| TransferError::PeerVerification)?,
+        Visibility::OwnDevices,
+        now,
+    )
+    .map_err(|_| TransferError::PeerVerification)?;
+    let public = RemoteCertificate::decode(
+        &local
+            .publication_bytes()
+            .map_err(|_| TransferError::PeerVerification)?,
+    )
+    .map_err(|_| TransferError::PeerVerification)?;
+    Ok((local, public))
+}
+
 fn send_control(
     channel: &mut SecureChannel<TcpStream>,
     id: i64,
     message: &ShareMessage,
 ) -> Result<(), TransferError> {
     let body = wire::encode_share(message)?;
+    send_bytes(channel, id, body)
+}
+
+fn send_bytes(
+    channel: &mut SecureChannel<TcpStream>,
+    id: i64,
+    body: Vec<u8>,
+) -> Result<(), TransferError> {
     channel.send(&wire::encode_data(&PayloadChunk {
         id,
         kind: PayloadKind::Bytes,

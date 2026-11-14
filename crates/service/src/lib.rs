@@ -1,4 +1,8 @@
 //! Application state shared by CLI and Qt, with explicit private-mode gating.
+mod discovery;
+use discovery::Discovery;
+pub use discovery::DiscoveryStatus;
+use nearlane_discovery::{DiscoveryError, Search};
 
 use nearlane_account::Account;
 pub use nearlane_account::{
@@ -13,6 +17,7 @@ pub struct Service {
     capabilities: Capabilities,
     account: Account,
     private_setup_started: bool,
+    discovery: Discovery,
 }
 
 impl Default for Service {
@@ -25,6 +30,7 @@ impl Default for Service {
             capabilities: Capabilities::default(),
             account: Account::from_local_config(&path),
             private_setup_started: false,
+            discovery: Discovery::default(),
         }
     }
 }
@@ -36,6 +42,7 @@ impl Service {
             return;
         }
         self.account = Account::from_local_config(path);
+        self.discovery.reset();
         self.private_setup_started = false;
     }
 
@@ -48,6 +55,7 @@ impl Service {
 
     /// Cancel the current attempt and discard any late token response.
     pub fn cancel_sign_in(&mut self, reason: LoginError) {
+        self.discovery.reset();
         self.account.cancel(reason);
     }
 
@@ -60,6 +68,7 @@ impl Service {
     /// Quick Share resets discovery/connections and trust data at sign-out;
     /// these adapters do not yet exist in this prototype. No public fallback.
     pub fn sign_out(&mut self) {
+        self.discovery.reset();
         self.visibility = Visibility::Hidden;
         self.capabilities = Capabilities::default();
         self.account.sign_out();
@@ -69,6 +78,11 @@ impl Service {
     /// Nonblocking observation of login progress and session expiry.
     pub fn poll_account(&mut self) {
         self.account.poll();
+        if self.account.status() == AccountStatus::Authorized {
+            self.discovery.poll();
+        } else {
+            self.discovery.reset();
+        }
         if self.account.status() == AccountStatus::Authorized && !self.private_setup_started {
             self.private_setup_started = true;
             let _ = self.account.prepare_own_devices();
@@ -77,8 +91,43 @@ impl Service {
 
     /// Retry the same owned registration without changing device visibility.
     pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {
+        self.discovery.reset();
         self.private_setup_started = true;
         self.account.prepare_own_devices()
+    }
+
+    /// Search only for advertisements matching the signed-in account's cache.
+    /// This does not advertise, establish connections or enable file reception.
+    pub fn find_own_devices(&mut self) {
+        if self.discovery.search.is_some() || self.account.busy() {
+            return;
+        }
+        self.discovery.reset();
+        let result = if matches!(self.account.private_status(), PrivateStatus::Ready(_)) {
+            Search::start(self.account.own_device_certificates())
+        } else {
+            Err(DiscoveryError::NoCertificates)
+        };
+        match result {
+            Ok(search) => {
+                self.discovery.search = Some(search);
+                self.discovery.status = DiscoveryStatus::Searching;
+            }
+            Err(error) => self.discovery.status = DiscoveryStatus::Failed(error),
+        }
+    }
+
+    /// Cancel discovery and forget candidates before any later search.
+    pub fn cancel_discovery(&mut self) {
+        self.discovery.reset();
+    }
+    /// Safe local-network search progress.
+    pub fn discovery_status(&self) -> DiscoveryStatus {
+        self.discovery.status
+    }
+    /// Authenticated candidate names only; no addresses, keys or tracking IDs.
+    pub fn own_device_names(&self) -> Vec<&str> {
+        self.discovery.devices.iter().map(|d| d.name()).collect()
     }
 
     /// Certificate server exchange status; it does not assert peer verification.
@@ -141,6 +190,22 @@ mod tests {
         let mut service = Service::default();
         assert!(service.set_visibility(Visibility::Contacts).is_err());
         assert_eq!(service.visibility(), Visibility::Hidden);
+    }
+
+    #[test]
+    fn discovery_without_own_credentials_does_not_start_or_enable_visibility() {
+        let mut service = Service::default();
+        service.find_own_devices();
+        assert_eq!(
+            service.discovery_status(),
+            DiscoveryStatus::Failed(DiscoveryError::NoCertificates)
+        );
+        assert!(service.discovery.search.is_none());
+        assert!(service.own_device_names().is_empty());
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        service.sign_out();
+        assert_eq!(service.discovery_status(), DiscoveryStatus::Idle);
+        assert!(service.own_device_names().is_empty());
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     fmt,
+    sync::Arc,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -19,7 +20,7 @@ const MAX_CERTIFICATE_BYTES: usize = 4 * 1024 * 1024;
 pub(super) struct IdentityContext {
     name: String,
     local: Vec<LocalCertificate>,
-    remote: Vec<RemoteCertificate>,
+    remote: Vec<Arc<RemoteCertificate>>,
     pub(super) publication_attempted: bool,
 }
 impl fmt::Debug for IdentityContext {
@@ -29,6 +30,9 @@ impl fmt::Debug for IdentityContext {
 }
 
 impl IdentityContext {
+    pub(super) fn remote_certificates(&self) -> Vec<Arc<RemoteCertificate>> {
+        self.remote.clone()
+    }
     pub(super) fn new() -> Result<Self, IdentityError> {
         let start = now_seconds().map_err(IdentityError::Certificate)?;
         let mut local = Vec::with_capacity(3);
@@ -125,7 +129,7 @@ impl IdentityContext {
                 }
                 match RemoteCertificate::decode(&credential.data) {
                     Ok(cert) if cert.for_own_device() && seen_certificates.insert(*cert.id()) => {
-                        remote.push(cert)
+                        remote.push(Arc::new(cert))
                     }
                     Ok(_) => {}
                     Err(_) => invalid += 1,

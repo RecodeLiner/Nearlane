@@ -149,6 +149,12 @@ impl fmt::Debug for PrivateSharing {
 }
 
 impl PrivateSharing {
+    pub(crate) fn remote_certificates(&self) -> Vec<Arc<nearlane_certificates::RemoteCertificate>> {
+        self.context
+            .as_ref()
+            .map(IdentityContext::remote_certificates)
+            .unwrap_or_default()
+    }
     pub(crate) fn status(&self) -> PrivateStatus {
         self.status
     }

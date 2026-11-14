@@ -29,8 +29,11 @@ A five-byte empty gRPC request to GetAccountInfo at that HTTPS origin, with
 no bearer token, cookies or real account, negotiated HTTP/2 and returned
 HTTP 200, application/grpc, grpc-status 16 UNAUTHENTICATED. This confirms a gRPC
 transport endpoint, **not** authenticated access or successful registration.
-The actual account permission was confirmed in the previous build;
-raw account tokens were not directly inspected or manipulated.
+The actual account permission was confirmed in the previous build.
+Raw account tokens were not directly inspected or manipulated. Subsequent
+results: registered, 9 own-device certificates, 6 active, 0 malformed records.
+This confirms successful authenticated publication and a complete query in that
+session; it does not prove phone discovery, private peer verification or cleanup.
 
 ## Implemented, locally validated
 
@@ -54,8 +57,9 @@ raw account tokens were not directly inspected or manipulated.
 
 ## Inference and remaining checks
 
-Authenticated publication/query, the acceptability of CONTACT_SELF with the
-existing sharing-pa token, and remote empty-publication semantics are untested.
+The successful exchange supports CONTACT_SELF publication/query with the
+existing sharing-pa token in that session. Remote empty-publication semantics
+remain untested.
 An empty SELF group is a withdrawal request inferred from the publication model;
 no undocumented Delete RPC or project-wide OAuth revocation is attempted.
 
@@ -63,14 +67,17 @@ Google's public implementation computes credential wrapper IDs using its
 HighwayFingerprint64 helper. Nearlane currently uses the first eight bytes of
 the cryptographically random certificate identifier as a stable opaque int64.
 No cryptographic check relies on that wrapper ID. Whether the backend requires
-the exact Google fingerprint remains an interoperability question; do not claim
-byte-for-byte equivalence or attribute a server rejection to an allowlist without
-further evidence.
+the exact Google fingerprint is not reproduced. Publication/query succeeded with
+the current opaque ID in the observed session; no byte-for-byte equivalence or
+server-side interpretation of the ID is claimed.
 
 Keys are not persisted or refreshed. App exit can interrupt cleanup, and remote
 certificates can remain until expiry (maximum nine days plus two hours). Normal
 sign-out does not remove browser cookies or revoke the OAuth application grant.
 
-This build stays hidden even after a successful server exchange. Real nearby
-discovery, connection setup, paired-key exchange over the encrypted channel and
-Android file transfer remain to be wired and checked with an owned phone.
+This build stays hidden even after a successful server exchange. Explicit Wi-Fi
+LAN discovery and advertisement matching are now implemented, with no connections
+to candidates. Paired-key frames/signatures are validated over an encrypted
+loopback connection with synthetic identities. Real connection setup,
+account-backed paired-key verification and Android file transfer remain to be
+wired and checked with an owned phone.

@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 nearlane-protocol.workspace = true
+nearlane-certificates.workspace = true
+nearlane-core.workspace = true
 sha2.workspace = true
 tempfile.workspace = true
 zeroize.workspace = true

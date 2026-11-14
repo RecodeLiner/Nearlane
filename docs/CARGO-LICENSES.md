@@ -63,6 +63,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | ff | 0.13.1 | MIT/Apache-2.0 |
 | fiat-crypto | 0.2.9 | MIT OR Apache-2.0 OR BSD-1-Clause |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
+| flume | 0.12.0 | Apache-2.0/MIT |
 | fnv | 1.0.7 | Apache-2.0 / MIT |
 | foldhash | 0.2.0 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
@@ -99,6 +100,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | icu_provider | 2.1.1 | Unicode-3.0 |
 | idna | 1.1.0 | MIT OR Apache-2.0 |
 | idna_adapter | 1.2.1 | Apache-2.0 OR MIT |
+| if-addrs | 0.15.0 | MIT OR BSD-3-Clause |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
 | indoc | 2.0.8 | MIT OR Apache-2.0 |
 | inout | 0.1.4 | MIT OR Apache-2.0 |
@@ -111,8 +113,10 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | link-cplusplus | 1.0.12 | MIT OR Apache-2.0 |
 | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
+| lock_api | 0.4.14 | MIT OR Apache-2.0 |
 | log | 0.4.35 | MIT OR Apache-2.0 |
 | lru-slab | 0.1.3 | MIT OR Apache-2.0 OR Zlib |
+| mdns-sd | 0.21.7 | Apache-2.0 OR MIT |
 | memchr | 2.8.3 | Unlicense OR MIT |
 | minimal-lexical | 0.2.1 | MIT/Apache-2.0 |
 | mio | 1.2.5 | MIT |
@@ -161,6 +165,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | rustls-webpki | 0.103.17 | ISC |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 |
+| scopeguard | 1.2.0 | MIT OR Apache-2.0 |
 | scratch | 1.0.9 | MIT OR Apache-2.0 |
 | sec1 | 0.7.3 | Apache-2.0 OR MIT |
 | semver | 1.0.28 | MIT OR Apache-2.0 |
@@ -174,7 +179,9 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | signature | 2.2.0 | Apache-2.0 OR MIT |
 | slab | 0.4.12 | MIT |
 | smallvec | 1.16.5 | MIT OR Apache-2.0 |
+| socket-pktinfo | 0.4.2 | MIT |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 |
+| spin | 0.9.9 | MIT |
 | spki | 0.7.3 | Apache-2.0 OR MIT |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | static_assertions | 1.1.0 | MIT OR Apache-2.0 |

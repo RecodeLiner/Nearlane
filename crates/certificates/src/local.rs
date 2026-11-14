@@ -130,6 +130,11 @@ impl LocalCertificate {
         now >= self.start && now < self.end
     }
 
+    /// Whether this private key was generated exclusively for own-device use.
+    pub fn for_own_device(&self) -> bool {
+        self.visibility == Visibility::OwnDevices
+    }
+
     /// Make a fresh rotating advertisement key. Do not reuse salts or exhaust
     /// more than half the two-byte space; regenerate certificates at that point.
     pub fn advertisement_key(&mut self) -> Result<EncryptedMetadataKey, CertificateError> {

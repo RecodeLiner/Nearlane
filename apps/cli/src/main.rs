@@ -23,8 +23,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 .map(|b| format!("{b:02x}"))
                 .collect::<String>();
             println!("Saved-file SHA-256 matched: {digest}");
+            println!("Synthetic certificate paired-key proofs passed in both directions.");
             println!(
-                "Owned loopback peers only. Android, certificates and private discovery are not tested."
+                "Owned loopback peers only. Android, real account peer verification and private discovery are not tested."
             );
         }
         Some("inspect-auth-url") => {

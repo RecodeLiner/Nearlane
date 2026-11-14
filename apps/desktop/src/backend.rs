@@ -5,6 +5,8 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qstringlist.h");
+        type QStringList = cxx_qt_lib::QStringList;
         include!("cxx-qt-lib/qurl.h");
         type QUrl = cxx_qt_lib::QUrl;
         include!("browser.h");
@@ -22,6 +24,10 @@ pub mod ffi {
         #[qproperty(bool, account_authorized)]
         #[qproperty(QString, private_status)]
         #[qproperty(bool, private_busy)]
+        #[qproperty(QString, discovery_status)]
+        #[qproperty(bool, discovery_busy)]
+        #[qproperty(bool, discovery_available)]
+        #[qproperty(QStringList, own_devices)]
         type Backend = super::BackendRust;
 
         #[qinvokable]
@@ -37,15 +43,19 @@ pub mod ffi {
         #[qinvokable]
         fn prepare_own_devices(self: Pin<&mut Backend>);
         #[qinvokable]
+        fn find_own_devices(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn cancel_discovery(self: Pin<&mut Backend>);
+        #[qinvokable]
         fn poll_account(self: Pin<&mut Backend>);
         #[qinvokable]
         fn load_config(self: Pin<&mut Backend>, url: &QUrl);
     }
 }
 
-use cxx_qt_lib::{QString, QUrl};
+use cxx_qt_lib::{QString, QStringList, QUrl};
 use nearlane_core::Visibility;
-use nearlane_service::{AccountStatus, LoginError, Service};
+use nearlane_service::{AccountStatus, DiscoveryStatus, LoginError, PrivateStatus, Service};
 use std::pin::Pin;
 
 /// State exposed to QML contains no credentials.
@@ -58,6 +68,10 @@ pub struct BackendRust {
     account_authorized: bool,
     private_status: QString,
     private_busy: bool,
+    discovery_status: QString,
+    discovery_busy: bool,
+    discovery_available: bool,
+    own_devices: QStringList,
     service: Service,
 }
 
@@ -73,6 +87,10 @@ impl Default for BackendRust {
             account_authorized: false,
             private_status: QString::from(service.private_status().message().as_str()),
             private_busy: false,
+            discovery_status: QString::from(service.discovery_status().message().as_str()),
+            discovery_busy: false,
+            discovery_available: false,
+            own_devices: QStringList::default(),
             service,
         }
     }
@@ -86,6 +104,19 @@ impl ffi::Backend {
         let busy = self.rust().service.account_busy();
         let private_status = self.rust().service.private_status().message();
         let private_busy = self.rust().service.private_busy();
+        let discovery = self.rust().service.discovery_status();
+        let available = account == AccountStatus::Authorized
+            && matches!(
+                self.rust().service.private_status(),
+                PrivateStatus::Ready(_)
+            );
+        let devices = self
+            .rust()
+            .service
+            .own_device_names()
+            .into_iter()
+            .map(QString::from)
+            .collect::<QStringList>();
         self.as_mut()
             .set_account_status(QString::from(account.message().as_str()));
         self.as_mut().set_account_configured(configured);
@@ -94,7 +125,13 @@ impl ffi::Backend {
             .set_account_authorized(account == AccountStatus::Authorized);
         self.as_mut()
             .set_private_status(QString::from(private_status.as_str()));
-        self.set_private_busy(private_busy);
+        self.as_mut().set_private_busy(private_busy);
+        self.as_mut()
+            .set_discovery_status(QString::from(discovery.message().as_str()));
+        self.as_mut()
+            .set_discovery_busy(discovery == DiscoveryStatus::Searching);
+        self.as_mut().set_discovery_available(available);
+        self.set_own_devices(devices);
     }
 
     /// Start an explicitly requested login in the system browser; QML never sees the URL.
@@ -146,6 +183,20 @@ impl ffi::Backend {
     pub fn prepare_own_devices(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         let _ = self.as_mut().rust_mut().service.prepare_own_devices();
+        self.update_account();
+    }
+
+    /// Explicitly search for certificate-matched local-network advertisements.
+    pub fn find_own_devices(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.find_own_devices();
+        self.update_account();
+    }
+
+    /// Forget candidates and cancel the worker; no late result is applied.
+    pub fn cancel_discovery(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.cancel_discovery();
         self.update_account();
     }
 

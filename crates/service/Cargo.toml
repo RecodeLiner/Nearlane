@@ -10,6 +10,7 @@ publish.workspace = true
 nearlane-core.workspace = true
 nearlane-platform.workspace = true
 nearlane-account.workspace = true
+nearlane-discovery.workspace = true
 
 [lints]
 workspace = true

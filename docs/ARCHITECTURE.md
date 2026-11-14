@@ -11,6 +11,7 @@ desktop (Qt/QML) ──> service ──> core
                       └─────> platform
                       └─────> account ──> auth
                                   └────> certificates ──> core + RustCrypto
+                      └─────> discovery ──> certificates + mDNS
 cli ──────────────> service
  └────────────────> auth
 cli ──────────────> transfer ──> protocol ──> Google UKEY2 + RustCrypto
@@ -38,7 +39,8 @@ non-UI Rust packages forbid unsafe code.
 1. Reproducible offline binary evidence, a buildable UI and isolated auth tests.
 2. Browser OAuth access to a suitable Nearby scope: implemented; the actual
    Quick Share permission was confirmed in the UI on 2026-11-15.
-3. Certificate publication/download: implemented, real API access untested.
+3. Certificate publication/download: implemented, real API exchange confirmed
+   (9 own-device certificates, 6 active, no malformed records).
    Real Contacts/OwnDevices discovery and handshake are still required.
 4. One small file exchanged with Android while public visibility remains off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.
@@ -47,8 +49,12 @@ The encrypted file engine now streams a single file in bounded Nearby payloads,
 with a sharing introduction/response subset and receiver acknowledgement. Its
 loopback harness verifies two process-owned peers, saves without overwriting and
 checks the reread digest. This is not the Android milestone: production discovery,
-Nearby connection setup, certificate/paired-key verification and lifecycle remain
-unconnected. The desktop does not advertise a fake receiver or enable Contacts.
+Nearby connection setup and account-backed paired-key verification remain
+unconnected. The local harness now uses real paired-key frame shapes and
+synthetic certificate signatures instead of process-local auth-token exchange.
+The desktop explicitly browses Wi-Fi LAN advertisements, shows only names from
+certificate-authenticated metadata, and remains hidden. No file receiver is
+advertised and private visibility capabilities stay disabled.
 
 Sign-out is owned by the service: reset visibility/trust, then cancel the browser
 attempt and drop the account session. Future discovery/connections/certificate
@@ -62,6 +68,7 @@ and a late reply cannot revive local trust. Nothing enables private visibility
 merely because the certificate server exchange succeeds.
 
 An OAuth grant alone does not establish certificate API access. Client allowlists,
-API provisioning or Google review may prevent the next step; no such restriction
-is assumed proven until observed. macOS/Windows compile and hardware behavior must be tested
+API provisioning or Google review may prevent future features; no such restriction
+is assumed proven until observed. The current publication/query path has worked
+in the authorized account session. macOS/Windows compile and hardware behavior must be tested
 on those operating systems. Rust portability does not abstract away their radios.

@@ -1,0 +1,19 @@
+[package]
+name = "nearlane-discovery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+nearlane-certificates.workspace = true
+base64.workspace = true
+mdns-sd.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+nearlane-core.workspace = true
+
+[lints]
+workspace = true

@@ -46,9 +46,10 @@ progress, and keeps account credentials out of QML. Only the exact sharing scope
 can establish AccountStatus::Authorized. SDK-only grants cannot satisfy it.
 
 Bearer grants stay in memory; no keyring persistence, automatic refresh or provider
-revocation exists yet. Session expiry and clearing drop the local grant. A late
-worker result cannot restore a cancelled session. Contacts/OwnDevices capabilities
-remain false, including after an account grant, until certificate exchange works.
+revocation exists yet. Session expiry and clearing drop the local grant. A late worker
+result cannot restore a cancelled session. An OAuth grant alone does not enable private
+sharing. Own-device certificate exchange is implemented; Contacts credential
+distribution remains unavailable.
 
 Tests use synthetic application parameters and local TCP only, with an injected
 token exchanger. They exercise stray callback survival, state/Host/request checks,
