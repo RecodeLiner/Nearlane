@@ -7,9 +7,11 @@ Rust 1.85 is the declared minimum; it has not been tested locally.
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 38 tests pass,
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 51 tests pass,
   including local OAuth callbacks, sign-out, encrypted file streaming,
-  tampering/replay, size/offset/path checks and non-overwrite behavior.
+  tampering/replay, size/offset/path checks and non-overwrite behavior, plus
+  public Google certificate crypto vectors, own-device-only publication,
+  bounded pagination/cache replacement and late setup/cleanup completion.
 - 22 upstream UKEY2 unit tests pass with the adapted public RustCrypto package.
 - `cargo run --locked -p nearlane-cli -- test-transfer`: 3,145,851 bytes transfer
   over owned loopback peers; the reread saved-file SHA-256 matches the source.
@@ -49,9 +51,13 @@ Android file transfers remain untested/unimplemented. The local file engine is
 implemented, but the self-test starts directly at UKEY2 and is not a complete Nearby
 connection or Android/private-mode session. The application displayed “Quick Share
 permission granted” after browser login on 2026-11-15. Those raw account tokens were not
-directly inspected or manipulated; certificate API access remains untested. The
-unauthenticated public-endpoint request used no account or cookies and reached Google's
-login page. See [the experiment record](research/oauth-runtime.md).
+directly inspected or manipulated; authenticated certificate API access remains
+untested. The unauthenticated public-endpoint requests used no account or cookies: OAuth
+reached Google's login page, and a separate empty HTTP/2 gRPC request received
+UNAUTHENTICATED status 16 from Nearby Identity. The app now implements temporary
+own-device publication and queries, but never enables discovery/file sharing on that
+basis alone. See [the login experiment](research/oauth-runtime.md) and [the
+certificate/API evidence](research/identity-certificates.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package
 is optimized. Tests do not use real account credentials or proprietary fixtures.

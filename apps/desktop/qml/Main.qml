@@ -64,7 +64,7 @@ ApplicationWindow {
                     }
                     Button {
                         text: qsTr("Cancel")
-                        visible: backend.account_busy
+                        visible: backend.account_busy && !backend.private_busy
                         onClicked: backend.cancel_sign_in()
                     }
                     Button {
@@ -85,7 +85,7 @@ ApplicationWindow {
                     onClicked: configDialog.open()
                 }
                 Label {
-                    text: qsTr("Sign-in opens your browser. Use a test account for this experimental build. Session tokens stay in memory and are cleared when Nearlane closes.")
+                    text: qsTr("Sign-in opens your browser, then prepares temporary own-device certificates. Use a test account for this experimental build. Tokens and private keys stay in memory.")
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
@@ -95,6 +95,26 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
+                }
+            }
+        }
+        Frame {
+            Layout.fillWidth: true
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 12
+                Label { text: qsTr("Your own devices"); font.bold: true }
+                Label { text: backend.private_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                Label {
+                    text: qsTr("After sign-in, Nearlane registers this computer with Google and exchanges temporary certificates for your own devices. It stays hidden while nearby connection support is being completed.")
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
+                Button {
+                    text: qsTr("Retry device setup")
+                    enabled: backend.account_authorized && !backend.account_busy
+                    onClicked: backend.prepare_own_devices()
                 }
             }
         }

@@ -1,7 +1,9 @@
 //! Application state shared by CLI and Qt, with explicit private-mode gating.
 
 use nearlane_account::Account;
-pub use nearlane_account::{AccountStatus, BrowserAuthorization, LoginError};
+pub use nearlane_account::{
+    AccountStatus, BrowserAuthorization, IdentityError, LoginError, PrivateStatus,
+};
 use nearlane_core::{Capabilities, UnavailableVisibility, Visibility};
 
 /// Initial implementation reports unsupported features honestly and stays hidden.
@@ -10,6 +12,7 @@ pub struct Service {
     visibility: Visibility,
     capabilities: Capabilities,
     account: Account,
+    private_setup_started: bool,
 }
 
 impl Default for Service {
@@ -21,19 +24,26 @@ impl Default for Service {
             visibility: Visibility::Hidden,
             capabilities: Capabilities::default(),
             account: Account::from_local_config(&path),
+            private_setup_started: false,
         }
     }
 }
 
 impl Service {
-    /// Load application configuration only, discarding any previous local session.
+    /// Load application configuration when signed out and no operation is pending.
     pub fn load_account_config(&mut self, path: &std::path::Path) {
+        if self.account.busy() || self.account.status() == AccountStatus::Authorized {
+            return;
+        }
         self.account = Account::from_local_config(path);
+        self.private_setup_started = false;
     }
 
     /// Start a browser login without changing discovery or sharing permissions.
     pub fn begin_sign_in(&mut self) -> Result<BrowserAuthorization, LoginError> {
-        self.account.begin()
+        let url = self.account.begin()?;
+        self.private_setup_started = false;
+        Ok(url)
     }
 
     /// Cancel the current attempt and discard any late token response.
@@ -41,9 +51,9 @@ impl Service {
         self.account.cancel(reason);
     }
 
-    /// Forget only the local in-memory session; provider grants are not revoked.
+    /// Sign out locally and request withdrawal of this device's credentials.
     pub fn clear_account(&mut self) {
-        self.account.clear_session();
+        self.sign_out();
     }
 
     /// Reset sharing state before discarding account credentials. Published
@@ -53,11 +63,32 @@ impl Service {
         self.visibility = Visibility::Hidden;
         self.capabilities = Capabilities::default();
         self.account.sign_out();
+        self.private_setup_started = false;
     }
 
     /// Nonblocking observation of login progress and session expiry.
     pub fn poll_account(&mut self) {
         self.account.poll();
+        if self.account.status() == AccountStatus::Authorized && !self.private_setup_started {
+            self.private_setup_started = true;
+            let _ = self.account.prepare_own_devices();
+        }
+    }
+
+    /// Retry the same owned registration without changing device visibility.
+    pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {
+        self.private_setup_started = true;
+        self.account.prepare_own_devices()
+    }
+
+    /// Certificate server exchange status; it does not assert peer verification.
+    pub fn private_status(&self) -> PrivateStatus {
+        self.account.private_status()
+    }
+
+    /// Whether private setup/cleanup is currently pending.
+    pub fn private_busy(&self) -> bool {
+        self.account.private_busy()
     }
 
     /// Account authorization status, separate from device trust/capabilities.
@@ -70,7 +101,7 @@ impl Service {
         self.account.configured()
     }
 
-    /// Whether a browser login or code exchange is pending.
+    /// Whether login, device preparation or sign-out cleanup is pending.
     pub fn account_busy(&self) -> bool {
         self.account.busy()
     }
@@ -95,7 +126,7 @@ impl Service {
     /// A truthful status suitable for display without exposing private data.
     pub fn status(&self) -> String {
         format!(
-            "Platform: {:?}. Hidden. Google certificate exchange is not verified.",
+            "Platform: {:?}. Hidden. Nearby connection support is still being implemented.",
             nearlane_platform::current()
         )
     }

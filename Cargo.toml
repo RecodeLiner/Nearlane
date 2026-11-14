@@ -19,6 +19,16 @@ nearlane-protocol = { path = "crates/protocol" }
 nearlane-platform = { path = "crates/platform" }
 nearlane-service = { path = "crates/service" }
 nearlane-transfer = { path = "crates/transfer" }
+nearlane-certificates = { path = "crates/certificates" }
+aes = "0.8"
+aes-gcm = "0.10"
+ctr = "0.9"
+hkdf = "0.12"
+hmac = "0.12"
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+tokio = { version = "1", features = ["rt", "net", "time"] }
+tonic = { version = "0.14", default-features = false, features = ["transport", "tls-ring", "tls-webpki-roots", "codegen"] }
+tonic-prost = "0.14"
 ukey2_connections = { path = "third_party/beto/ukey2_connections" }
 crypto_provider_rustcrypto = { path = "third_party/beto/crypto_provider_rustcrypto", features = ["std"] }
 prost = "0.14"

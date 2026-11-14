@@ -10,6 +10,7 @@ Dependency graph:
 desktop (Qt/QML) ──> service ──> core
                       └─────> platform
                       └─────> account ──> auth
+                                  └────> certificates ──> core + RustCrypto
 cli ──────────────> service
  └────────────────> auth
 cli ──────────────> transfer ──> protocol ──> Google UKEY2 + RustCrypto
@@ -35,9 +36,10 @@ non-UI Rust packages forbid unsafe code.
 ## Milestones
 
 1. Reproducible offline binary evidence, a buildable UI and isolated auth tests.
-2. Browser OAuth access to a suitable Nearby scope: the local runtime is now
-   implemented, but a real grant and provider permission remain unverified.
-3. Certificate publication/download, then real Contacts/OwnDevices handshake.
+2. Browser OAuth access to a suitable Nearby scope: implemented; the actual
+   Quick Share permission was confirmed in the UI on 2026-11-15.
+3. Certificate publication/download: implemented, real API access untested.
+   Real Contacts/OwnDevices discovery and handshake are still required.
 4. One small file exchanged with Android while public visibility remains off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.
 
@@ -52,8 +54,14 @@ Sign-out is owned by the service: reset visibility/trust, then cancel the browse
 attempt and drop the account session. Future discovery/connections/certificate
 adapters must be shut down there, following Google's published service lifecycle.
 Provider-wide OAuth revocation is distinct from ordinary device sign-out.
+The account worker now publishes only SELF certificates to the fixed Nearby
+Identity gRPC service and queries a bounded, memory-only certificate cache.
+Signing out requests an empty SELF publication for the same owned resource;
+server-side removal semantics remain unverified. Failed cleanup is visible,
+and a late reply cannot revive local trust. Nothing enables private visibility
+merely because the certificate server exchange succeeds.
 
-Milestone 2 is not solved by discovering a string in a binary. Client allowlists,
-API provisioning or Google review may prevent it; no such restriction is assumed
-proven until observed. macOS/Windows compile and hardware behavior must be tested
+An OAuth grant alone does not establish certificate API access. Client allowlists,
+API provisioning or Google review may prevent the next step; no such restriction
+is assumed proven until observed. macOS/Windows compile and hardware behavior must be tested
 on those operating systems. Rust portability does not abstract away their radios.

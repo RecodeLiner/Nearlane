@@ -5,6 +5,7 @@
 
 mod config;
 mod exchange;
+mod identity;
 mod loopback;
 
 use std::{
@@ -20,6 +21,8 @@ use std::{
 };
 
 pub use config::ClientConfig;
+use identity::PrivateSharing;
+pub use identity::{CertificateSummary, IdentityError, PrivateStatus};
 use nearlane_auth::{AuthorizationAttempt, TokenGrant, TokenRequest};
 
 /// Sanitized failures. No provider response, URL, code or token is retained here.
@@ -102,7 +105,7 @@ impl AccountStatus {
             Self::Ready => "Ready to sign in through your browser.".into(),
             Self::WaitingForBrowser => "Complete sign-in in your browser. Choose a test account.".into(),
             Self::Exchanging => "Checking the permission returned by Google…".into(),
-            Self::Authorized => "Quick Share permission granted. Device certificate exchange is still required; this device remains hidden.".into(),
+            Self::Authorized => "Quick Share permission granted. This device remains hidden while private sharing support is being completed.".into(),
             Self::SignedOut => "Signed out. This device is hidden.".into(),
             Self::Expired => "The in-memory session expired. Sign in again.".into(),
             Self::Failed(error) => error.to_string(),
@@ -125,7 +128,7 @@ impl fmt::Debug for BrowserAuthorization {
 }
 
 struct Session {
-    _grant: TokenGrant,
+    _grant: Arc<TokenGrant>,
     expires_at: Instant,
 }
 
@@ -181,7 +184,7 @@ impl PendingLogin {
                     }
                     Ok(Session {
                         expires_at: Instant::now() + Duration::from_secs(grant.expires_in()),
-                        _grant: grant,
+                        _grant: Arc::new(grant),
                     })
                 });
                 // Exactly one terminal result is sent; dropped/cancelled UIs do not
@@ -212,6 +215,7 @@ pub struct Account {
     pending: Option<PendingLogin>,
     session: Option<Session>,
     status: AccountStatus,
+    private: PrivateSharing,
 }
 
 impl fmt::Debug for Account {
@@ -236,6 +240,7 @@ impl Account {
             pending: None,
             session: None,
             status,
+            private: PrivateSharing::default(),
         }
     }
 
@@ -249,13 +254,37 @@ impl Account {
     }
     /// Whether one browser or network operation is in progress.
     pub fn busy(&self) -> bool {
-        self.pending.is_some()
+        self.pending.is_some() || self.private.busy()
+    }
+
+    /// Server-side certificate exchange state, independent of peer trust flags.
+    pub fn private_status(&self) -> PrivateStatus {
+        self.private.status()
+    }
+
+    /// Whether certificate setup or owned-resource cleanup is in progress.
+    pub fn private_busy(&self) -> bool {
+        self.private.busy()
+    }
+
+    /// Publish temporary own-device certificates and obtain a bounded cache from
+    /// Google's fixed API. Only an explicit service command starts this operation.
+    pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {
+        if self.busy() {
+            return Err(IdentityError::Busy);
+        }
+        let session = self
+            .session
+            .as_ref()
+            .filter(|s| Instant::now() < s.expires_at)
+            .ok_or(IdentityError::NoSession)?;
+        self.private.prepare(Arc::clone(&session._grant))
     }
 
     /// Bind a loopback listener and start a worker; the caller opens the returned
     /// URL on the UI thread. No account request is sent until a valid callback.
     pub fn begin(&mut self) -> Result<BrowserAuthorization, LoginError> {
-        if self.busy() {
+        if self.busy() || self.session.is_some() {
             return Err(LoginError::Busy);
         }
         let config = self.config.clone().ok_or(LoginError::Configuration)?;
@@ -293,23 +322,29 @@ impl Account {
             .as_ref()
             .is_some_and(|s| Instant::now() >= s.expires_at)
         {
+            self.private
+                .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
             self.session = None;
             self.status = AccountStatus::Expired;
         }
+        self.private
+            .poll(self.session.is_some() && self.status == AccountStatus::Authorized);
     }
 
     /// Cancel the attempt and discard its result. An already-sent HTTPS request
     /// may finish within its timeout, but its grant cannot re-enable the session.
     pub fn cancel(&mut self, reason: LoginError) {
+        self.private
+            .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
         self.pending = None;
         self.session = None;
         self.status = AccountStatus::Failed(reason);
     }
 
-    /// Clear local memory only. This does not revoke grants in the Google account.
+    /// Drop the session and request cleanup of the owned temporary registration.
+    /// This does not revoke the account's project-wide OAuth grant.
     pub fn clear_session(&mut self) {
-        self.pending = None;
-        self.session = None;
+        self.sign_out();
         self.status = if self.configured() {
             AccountStatus::Ready
         } else {
@@ -320,6 +355,8 @@ impl Account {
     /// Sign out and cancel any pending browser attempt. Provider-wide grant
     /// revocation is separate; Google browser cookies are not accessed.
     pub fn sign_out(&mut self) {
+        self.private
+            .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
         self.pending = None;
         self.session = None;
         self.status = AccountStatus::SignedOut;
@@ -439,6 +476,7 @@ mod tests {
             pending: Some(pending),
             session: None,
             status: AccountStatus::WaitingForBrowser,
+            private: PrivateSharing::default(),
         };
         account.cancel(LoginError::Cancelled);
         std::thread::sleep(Duration::from_millis(50));
@@ -505,10 +543,11 @@ mod tests {
             config: Some(config()),
             pending: None,
             session: Some(Session {
-                _grant: TokenGrant::from_response(&json).unwrap(),
+                _grant: Arc::new(TokenGrant::from_response(&json).unwrap()),
                 expires_at: Instant::now() - Duration::from_secs(1),
             }),
             status: AccountStatus::Authorized,
+            private: PrivateSharing::default(),
         };
         account.poll();
         assert_eq!(account.status(), AccountStatus::Expired);
@@ -526,6 +565,7 @@ mod tests {
             pending: Some(pending),
             session: None,
             status: AccountStatus::WaitingForBrowser,
+            private: PrivateSharing::default(),
         };
         account.sign_out();
         std::thread::sleep(Duration::from_millis(50));

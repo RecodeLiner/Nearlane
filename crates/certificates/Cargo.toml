@@ -1,0 +1,24 @@
+[package]
+name = "nearlane-certificates"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+nearlane-core.workspace = true
+aes.workspace = true
+aes-gcm.workspace = true
+ctr.workspace = true
+hkdf.workspace = true
+hmac.workspace = true
+p256.workspace = true
+prost.workspace = true
+rand.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+zeroize.workspace = true
+
+[lints]
+workspace = true

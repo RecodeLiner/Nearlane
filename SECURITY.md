@@ -21,6 +21,30 @@ app or clearing the local session drops them; clearing does not revoke provider
 consent. Secrets redact Debug and use zeroizing owned strings. This does not
 guarantee secrets are absent from all allocator, parser, TLS or OS copies.
 
+After sign-in, a separate worker prepares three temporary SELF
+certificates and exchanges them with the fixed TLS origin nearby.googleapis.com
+using gRPC with validated roots and real trailer/status handling. No configurable
+API origin, proxy callback, account cookies or plaintext transport is accepted.
+Only numeric gRPC failure codes reach the UI; provider error text is discarded.
+Queries are limited to eight pages, 256 records, 4 MiB of credential data and a
+1 MiB decoded RPC message. Only own-device certificates enter this cache. No
+remote record alone enables discovery, trust or file transfer.
+
+The new cryptographic module follows Google's public Nearby certificate code:
+P-256 signatures, HKDF-SHA256, AES-CTR discovery keys and AES-GCM metadata.
+Private signing keys are never published. Symmetric discovery keys are included
+in the sharing credential sent to Google, as the protocol requires, and must
+also stay out of logs and untrusted application surfaces. All local keys, salts
+and downloaded certificates are session-only. Certificate keys/metadata are
+immutable to avoid AES-GCM nonce reuse with changed plaintext.
+
+Sign-out first removes local visibility/trust, then asks the server to replace
+this process-owned resource's SELF credentials with an empty list. This is an
+experimental withdrawal request, not a verified server deletion guarantee.
+Keep the process running while cleanup finishes. Without confirmed cleanup,
+credentials may remain at Google for up to nine days plus two hours. Signing out
+never changes another device's resource or revokes the shared OAuth project.
+
 Local-only examination/reuse of the official desktop application configuration is
 explicitly authorized for this research. Only the previously hashed artifact is accepted
 by the importer. Its output stays in ignored work/private/ (directory 0700, file 0600),

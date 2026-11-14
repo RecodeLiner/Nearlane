@@ -9,6 +9,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | aes-gcm | 0.10.3 | Apache-2.0 OR MIT |
 | aes-gcm-siv | 0.11.1 | MIT OR Apache-2.0 |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 |
+| async-trait | 0.1.92 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
 | autocfg | 1.5.1 | Apache-2.0 OR MIT |
 | base16ct | 0.2.0 | Apache-2.0 OR MIT |
@@ -62,6 +63,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | ff | 0.13.1 | MIT/Apache-2.0 |
 | fiat-crypto | 0.2.9 | MIT OR Apache-2.0 OR BSD-1-Clause |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
+| fnv | 1.0.7 | Apache-2.0 / MIT |
 | foldhash | 0.2.0 | Zlib |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 |
 | futures-channel | 0.3.34 | MIT OR Apache-2.0 |
@@ -75,6 +77,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
 | ghash | 0.5.1 | Apache-2.0 OR MIT |
 | group | 0.13.0 | MIT/Apache-2.0 |
+| h2 | 0.4.20 | MIT |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 |
 | hkdf | 0.12.4 | MIT OR Apache-2.0 |
 | hmac | 0.12.1 | MIT OR Apache-2.0 |
@@ -82,8 +85,10 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | http-body | 1.1.0 | MIT |
 | http-body-util | 0.1.5 | MIT |
 | httparse | 1.10.1 | MIT OR Apache-2.0 |
+| httpdate | 1.0.3 | MIT OR Apache-2.0 |
 | hyper | 1.12.0 | MIT |
 | hyper-rustls | 0.27.10 | Apache-2.0 OR ISC OR MIT |
+| hyper-timeout | 0.5.2 | MIT OR Apache-2.0 |
 | hyper-util | 0.1.21 | MIT |
 | icu_collections | 2.1.1 | Unicode-3.0 |
 | icu_locale_core | 2.1.1 | Unicode-3.0 |
@@ -118,7 +123,10 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
 | opaque-debug | 0.3.1 | MIT OR Apache-2.0 |
 | p256 | 0.13.2 | Apache-2.0 OR MIT |
+| pem-rfc7468 | 0.7.0 | Apache-2.0 OR MIT |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 |
+| pin-project | 1.1.13 | Apache-2.0 OR MIT |
+| pin-project-internal | 1.1.13 | Apache-2.0 OR MIT |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
 | pkcs8 | 0.10.2 | Apache-2.0 OR MIT |
 | polyval | 0.6.2 | Apache-2.0 OR MIT |
@@ -184,12 +192,18 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | tinystr | 0.8.5 | Unicode-3.0 |
 | tinyvec | 1.13.3 | Zlib OR Apache-2.0 OR MIT |
 | tokio | 1.54.1 | MIT |
+| tokio-macros | 2.7.2 | MIT |
 | tokio-rustls | 0.26.6 | MIT OR Apache-2.0 |
+| tokio-stream | 0.1.19 | MIT |
+| tokio-util | 0.7.20 | MIT |
+| tonic | 0.14.5 | MIT |
+| tonic-prost | 0.14.5 | MIT |
 | tower | 0.5.3 | MIT |
 | tower-http | 0.6.11 | MIT |
 | tower-layer | 0.3.3 | MIT |
 | tower-service | 0.3.3 | MIT |
 | tracing | 0.1.44 | MIT |
+| tracing-attributes | 0.1.31 | MIT |
 | tracing-core | 0.1.36 | MIT |
 | try-lock | 0.2.5 | MIT |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |

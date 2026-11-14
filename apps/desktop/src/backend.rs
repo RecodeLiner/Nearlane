@@ -20,6 +20,8 @@ pub mod ffi {
         #[qproperty(bool, account_configured)]
         #[qproperty(bool, account_busy)]
         #[qproperty(bool, account_authorized)]
+        #[qproperty(QString, private_status)]
+        #[qproperty(bool, private_busy)]
         type Backend = super::BackendRust;
 
         #[qinvokable]
@@ -32,6 +34,8 @@ pub mod ffi {
         fn clear_account(self: Pin<&mut Backend>);
         #[qinvokable]
         fn sign_out(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn prepare_own_devices(self: Pin<&mut Backend>);
         #[qinvokable]
         fn poll_account(self: Pin<&mut Backend>);
         #[qinvokable]
@@ -52,6 +56,8 @@ pub struct BackendRust {
     account_configured: bool,
     account_busy: bool,
     account_authorized: bool,
+    private_status: QString,
+    private_busy: bool,
     service: Service,
 }
 
@@ -65,6 +71,8 @@ impl Default for BackendRust {
             account_configured: service.account_configured(),
             account_busy: false,
             account_authorized: false,
+            private_status: QString::from(service.private_status().message().as_str()),
+            private_busy: false,
             service,
         }
     }
@@ -76,11 +84,17 @@ impl ffi::Backend {
         let account = self.rust().service.account_status();
         let configured = self.rust().service.account_configured();
         let busy = self.rust().service.account_busy();
+        let private_status = self.rust().service.private_status().message();
+        let private_busy = self.rust().service.private_busy();
         self.as_mut()
             .set_account_status(QString::from(account.message().as_str()));
         self.as_mut().set_account_configured(configured);
         self.as_mut().set_account_busy(busy);
-        self.set_account_authorized(account == AccountStatus::Authorized);
+        self.as_mut()
+            .set_account_authorized(account == AccountStatus::Authorized);
+        self.as_mut()
+            .set_private_status(QString::from(private_status.as_str()));
+        self.set_private_busy(private_busy);
     }
 
     /// Start an explicitly requested login in the system browser; QML never sees the URL.
@@ -114,7 +128,7 @@ impl ffi::Backend {
         self.update_account();
     }
 
-    /// Drop local credentials from memory, without changing provider grants.
+    /// Sign out and request withdrawal of this device's temporary credentials.
     pub fn clear_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         self.as_mut().rust_mut().service.clear_account();
@@ -125,6 +139,13 @@ impl ffi::Backend {
     pub fn sign_out(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         self.as_mut().rust_mut().service.sign_out();
+        self.update_account();
+    }
+
+    /// Retry certificate preparation; authentication and key material stay in Rust.
+    pub fn prepare_own_devices(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        let _ = self.as_mut().rust_mut().service.prepare_own_devices();
         self.update_account();
     }
 

@@ -19,5 +19,10 @@ Original wire adapters follow the published google/nearby protobuf schemas
 (Google LLC, Apache-2.0), revision 770a030be8fbebbcda5bf71ba718c35f5350c27c.
 https://github.com/google/nearby
 
+Selected synthetic certificate test vectors in
+crates/certificates/src/test_vectors.rs are adapted from Google's published
+sharing/certificates/test_util.cc at that same revision, Copyright 2022 Google LLC,
+Apache-2.0. These are public test data, not credentials from a real account.
+
 No proprietary Google binaries/resources, embedded client credentials, or source
 from GPL-only sharing clients are included in this repository.

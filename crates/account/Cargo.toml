@@ -8,6 +8,13 @@ publish.workspace = true
 
 [dependencies]
 nearlane-auth.workspace = true
+nearlane-core.workspace = true
+nearlane-certificates.workspace = true
+prost.workspace = true
+rand.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+tokio.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
 url.workspace = true
