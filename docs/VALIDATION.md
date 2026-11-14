@@ -15,13 +15,26 @@ Verified:
 - `python3 -m unittest discover -s tools -p 'test_*.py'`: 4 parser-boundary tests.
 - `nix build`: a release package was built and its CLI runs from the Nix store.
 
-Example UI smoke invocation inside `nix develop`:
+UI smoke invocation for the installed package (no forced Fusion theme and no
+warning suppression):
 
 ```sh
-QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= \
-QT_QUICK_CONTROLS_STYLE=Fusion QT_QUICK_BACKEND=software \
-NEARLANE_SMOKE_TEST=1 timeout 10s target/debug/nearlane-desktop
+python3 tools/smoke_desktop.py result/bin/nearlane-desktop --kde
+# To check the actual desktop display as well (the windows close automatically):
+python3 tools/smoke_desktop.py result/bin/nearlane-desktop --kde --native
 ```
+
+The earlier Fusion-only check missed 40 warnings in the KDE desktop style.
+Kirigami's StyleSelector scans QML_IMPORT_PATH/QML2_IMPORT_PATH independently of
+the QML engine's Nix-patched import paths. In this Plasma session it picked the
+partial `/run/current-system/sw` Kirigami tree, containing only styles, and then
+registered empty component URLs. The Linux package and development shell now
+include the pinned KDE runtime and prepend the complete Kirigami module to
+QML_IMPORT_PATH. No Qt warnings are filtered and no style is forced by the app.
+The smoke tool forces Qt diagnostics to stderr: otherwise Qt can send them to
+the journal, making a captured stderr appear clean.
+
+Upstream reference: [Kirigami StyleSelector, v6.31.0](https://github.com/KDE/kirigami/blob/v6.31.0/src/platform/styleselector.cpp).
 
 This checks loading and QML/Rust integration, not a visual screenshot or a real
 interactive desktop session. Windows/macOS execution has not been validated locally. Radio, firewall, Google login,
