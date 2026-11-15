@@ -58,7 +58,7 @@ fn base64(text: &str, bound: usize) -> Result<Vec<u8>, DiscoveryError> {
         .map_err(|_| DiscoveryError::Advertisement)
 }
 
-fn decode_info(info: &[u8], endpoint: [u8; 4]) -> Result<Advertisement, DiscoveryError> {
+pub(super) fn decode_info(info: &[u8], endpoint: [u8; 4]) -> Result<Advertisement, DiscoveryError> {
     if !(17..=131).contains(&info.len()) || info[0] >> 5 > 1 {
         return Err(DiscoveryError::Advertisement);
     }

@@ -7,7 +7,7 @@
       each = nixpkgs.lib.genAttrs systems;
       packageFor = system: let
         pkgs = import nixpkgs { inherit system; };
-        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative ];
+        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg ];
       in
         pkgs.rustPlatform.buildRustPackage {
           pname = "nearlane";
@@ -24,7 +24,7 @@
           cargoTestFlags = [ "--workspace" "--exclude" "nearlane-desktop" ];
           nativeBuildInputs = [ pkgs.pkg-config pkgs.lld pkgs.qt6.wrapQtAppsHook ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
-          buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtdeclarative pkgs.stdenv.cc.cc.lib ]
+          buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.stdenv.cc.cc.lib ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.kdePackages.kirigami ];
           env.QMAKE = "${qtEnv}/bin/qmake";
           preBuild = ''export QMAKE="${qtEnv}/bin/qmake"'';
@@ -52,7 +52,7 @@
       packages = each (system: { default = packageFor system; });
       devShells = each (system: let
         pkgs = import nixpkgs { inherit system; };
-        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative ];
+        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg ];
       in {
         default = pkgs.mkShell {
           packages = with pkgs; [ cargo rustc rustfmt clippy pkg-config cmake ninja lld qt6.qtbase qt6.qtdeclarative qt6.wrapQtAppsHook ]

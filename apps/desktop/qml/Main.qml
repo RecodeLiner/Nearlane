@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import Qt.labs.platform as Platform
 import org.nearlane.app
 
 ApplicationWindow {
@@ -12,6 +13,61 @@ ApplicationWindow {
     minimumHeight: 520
     visible: true
     title: "Nearlane"
+    property bool quitting: false
+    property bool incomingPending: backend.receive_pending
+    property int savedFiles: backend.received_count
+    function showWindow() { window.showNormal(); window.raise(); window.requestActivate() }
+    function quitApp() { quitting = true; backend.shutdown(); Qt.quit() }
+    onClosing: function(event) {
+        if (!quitting && (!backend.smoke_test || backend.tray_test) && tray.available) {
+            event.accepted = false
+            window.hide()
+        } else {
+            backend.shutdown()
+            Qt.quit()
+        }
+    }
+    onIncomingPendingChanged: {
+        if (incomingPending && !backend.smoke_test) {
+            if (tray.available && tray.supportsMessages)
+                tray.showMessage(qsTr("Incoming file"), qsTr("A verified own device wants to send a file. Open Nearlane to accept or decline."), Platform.SystemTrayIcon.Information, 10000)
+            else showWindow()
+        }
+    }
+    onSavedFilesChanged: {
+        if (savedFiles > 0 && !backend.smoke_test && tray.available && tray.supportsMessages)
+            tray.showMessage(qsTr("File received"), qsTr("The file was saved in your selected folder."), Platform.SystemTrayIcon.Information, 6000)
+    }
+
+    Platform.SystemTrayIcon {
+        id: tray
+        visible: !backend.smoke_test || backend.tray_test
+        icon.source: "qrc:/nearlane/icon.svg"
+        tooltip: backend.receiving_active ? qsTr("Nearlane · Receiving from your devices") : qsTr("Nearlane · Running in background")
+        onActivated: function(reason) {
+            if (reason === Platform.SystemTrayIcon.Trigger || reason === Platform.SystemTrayIcon.DoubleClick)
+                window.showWindow()
+        }
+        onMessageClicked: window.showWindow()
+        menu: Platform.Menu {
+            Platform.MenuItem { text: qsTr("Open Nearlane"); onTriggered: window.showWindow() }
+            Platform.MenuItem {
+                text: qsTr("Receive from own devices")
+                checkable: true
+                checked: backend.receiving_active
+                enabled: backend.discovery_available && !backend.transfer_busy
+                onTriggered: { if (backend.receiving_active) backend.stop_receiving(); else backend.start_receiving() }
+            }
+            Platform.MenuItem {
+                text: qsTr("Find devices continuously")
+                checkable: true
+                checked: backend.continuous_discovery
+                onTriggered: backend.set_background_discovery(!backend.continuous_discovery)
+            }
+            Platform.MenuSeparator {}
+            Platform.MenuItem { text: qsTr("Quit"); onTriggered: window.quitApp() }
+        }
+    }
 
     Backend { id: backend }
 
@@ -21,7 +77,7 @@ ApplicationWindow {
             anchors.leftMargin: 20
             anchors.rightMargin: 20
             Label { text: "Nearlane"; font.pixelSize: 22; font.bold: true; Layout.fillWidth: true }
-            Label { text: qsTr("Hidden"); color: palette.mid }
+            Label { text: backend.receiving_active ? qsTr("Own devices · Receiving") : qsTr("Hidden"); color: palette.mid }
         }
     }
 
@@ -132,6 +188,11 @@ ApplicationWindow {
                 spacing: 12
                 Label { text: qsTr("Nearby devices"); font.bold: true }
                 Label { text: backend.discovery_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                CheckBox {
+                    text: qsTr("Find my devices continuously")
+                    checked: backend.continuous_discovery
+                    onClicked: backend.set_background_discovery(checked)
+                }
                 RowLayout {
                     Button {
                         text: qsTr("Find my devices")
@@ -159,7 +220,7 @@ ApplicationWindow {
                         Label { text: parent.modelData; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         Button {
                             text: qsTr("Send file")
-                            enabled: backend.account_authorized && !backend.transfer_busy && !backend.account_busy && backend.selected_send_name.length > 0
+                            enabled: backend.account_authorized && !backend.transfer_busy && !backend.receiving_active && !backend.account_busy && backend.selected_send_name.length > 0
                             onClicked: backend.send_selected_file(parent.index)
                         }
                     }
@@ -173,7 +234,7 @@ ApplicationWindow {
                     font.pixelSize: 12
                 }
                 Label {
-                    text: qsTr("Use the same local network and Google account on both devices. Keep the phone unlocked with Quick Share open and its existing private visibility. This build searches Wi-Fi LAN only; it does not use Everyone visibility.")
+                    text: qsTr("Use the same local network and Google account on both devices, with private Quick Share visibility. This build uses Wi-Fi LAN only; Bluetooth/BLE background discovery is not ready. The phone's Receive screen is not required and can temporarily make it visible to everyone.")
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
@@ -205,8 +266,40 @@ ApplicationWindow {
                 }
             }
         }
+        Frame {
+            Layout.fillWidth: true
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 12
+                Label { text: qsTr("Receive on this computer"); font.bold: true }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Button { text: qsTr("Choose folder…"); enabled: !backend.receiving_active; onClicked: receiveFolder.open() }
+                    Label { text: backend.receive_directory; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                }
+                RowLayout {
+                    Button {
+                        text: qsTr("Start receiving")
+                        enabled: backend.discovery_available && !backend.account_busy && !backend.receiving_active && !backend.transfer_busy && backend.receive_directory.length > 0
+                        onClicked: backend.start_receiving()
+                    }
+                    Button { text: qsTr("Stop receiving"); visible: backend.receiving_active; onClicked: backend.stop_receiving() }
+                }
+                Label { text: backend.receive_status; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                Label { visible: backend.receive_pending; text: backend.incoming_offer; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                RowLayout {
+                    visible: backend.receive_pending
+                    Button { text: qsTr("Accept file"); onClicked: backend.decide_incoming(true) }
+                    Button { text: qsTr("Decline"); onClicked: backend.decide_incoming(false) }
+                }
+                Label {
+                    text: qsTr("Only verified devices from your account may offer a file. You approve each file before it is received. One file up to 64 MiB; existing files are never replaced. Receiving stays on until Stop receiving or Quit.")
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
+                }
+            }
+        }
         Label {
-            text: qsTr("Receiving files and Contacts mode are still being implemented. This computer stays hidden; outgoing transfers use the selected own device.")
+            text: qsTr("Contacts mode is still being implemented. This computer is discoverable by your own devices only while receiving is enabled.")
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
@@ -226,6 +319,11 @@ ApplicationWindow {
         fileMode: FileDialog.OpenFile
         onAccepted: backend.select_send_file(selectedFile)
     }
+    FolderDialog {
+        id: receiveFolder
+        title: qsTr("Choose where to save received files")
+        onAccepted: backend.select_receive_directory(selectedFolder)
+    }
 
     Timer {
         interval: 100
@@ -239,6 +337,18 @@ ApplicationWindow {
         running: backend.smoke_test
         onTriggered: {
             backend.check_contacts()
+            if (backend.tray_test) {
+                if (!tray.available) throw new Error("System tray is not available")
+                if (!backend.receive_directory.endsWith("/Nearlane") && !backend.receive_directory.endsWith("\\Nearlane"))
+                    throw new Error("Default receiving folder is missing")
+                window.close()
+                if (window.visible) throw new Error("Closing did not hide to tray")
+                window.showWindow()
+                if (!window.visible) throw new Error("Window did not restore from tray")
+                if (tray.supportsMessages)
+                    tray.showMessage("Nearlane", "Background notification check", Platform.SystemTrayIcon.Information, 2500)
+                console.log("smoke: tray close/show and notification checked")
+            }
             Qt.quit()
         }
     }

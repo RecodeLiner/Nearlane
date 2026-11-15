@@ -37,6 +37,7 @@ flags stay false. No nearby third-party device has been scanned or contacted.
 
 Live Android connection setup and private transfer are implemented outside
 this loopback harness; see [native-outgoing.md](native-outgoing.md).
+Incoming Android-to-PC saving is also verified; see [native-incoming.md](native-incoming.md).
 
 ## Sign-out, based on the published service
 

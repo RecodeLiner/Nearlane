@@ -6,9 +6,11 @@
 //! discover or advertise devices and does not open a production file receiver.
 
 mod file;
+mod incoming;
 mod loopback;
 mod outgoing;
 mod session;
+pub use incoming::{IncomingOffer, RECEIVE_PORT, ReceiveFailure, ReceiveJob, ReceivePhase};
 pub use outgoing::{SendFailure, SendFailureKind, SendJob, SendPhase, SendProgress};
 
 use std::{

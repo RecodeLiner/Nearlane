@@ -23,6 +23,12 @@ pub(crate) struct DeadlineSocket {
     deadline: Cell<Instant>,
 }
 impl DeadlineSocket {
+    pub(crate) fn handshake(socket: TcpStream) -> Self {
+        Self {
+            socket,
+            deadline: Cell::new(Instant::now() + Duration::from_secs(15)),
+        }
+    }
     pub(crate) fn new(socket: TcpStream) -> Self {
         Self {
             socket,
@@ -118,6 +124,40 @@ impl Session {
         }
         Err(TransferError::Worker)
     }
+    pub(crate) fn begin_receive_consent(&mut self) {
+        self.deadline = Instant::now() + Duration::from_secs(180);
+        self.channel.io_ref().deadline.set(self.deadline);
+    }
+    pub(crate) fn poll_consent_control(&mut self, offer: &FileOffer) -> Result<(), TransferError> {
+        if self.ready()? {
+            match self.pump()? {
+                None | Some(Event::Ack(_)) => {}
+                Some(Event::Bytes(bytes)) => {
+                    if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                        eprintln!(
+                            "receiver: while awaiting consent {}",
+                            wire::diagnostic_share_shape(&bytes)
+                        );
+                    }
+                    match wire::decode_share(&bytes) {
+                        Ok(wire::ShareMessage::Accepted) => {}
+                        Ok(wire::ShareMessage::Rejected) => return Err(TransferError::Rejected),
+                        Ok(wire::ShareMessage::Introduction(repeated)) if repeated == *offer => {}
+                        Ok(wire::ShareMessage::Cancel) => return Err(TransferError::Cancelled),
+                        _ if wire::is_progress(&bytes) => {}
+                        _ => return Err(TransferError::Sequence),
+                    }
+                }
+                Some(Event::File(_)) => {
+                    if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                        eprintln!("receiver: file content arrived before local consent");
+                    }
+                    return Err(TransferError::Sequence);
+                }
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn send_bytes(&mut self, bytes: Vec<u8>) -> Result<(), TransferError> {
         self.check()?;
         if bytes.is_empty() || bytes.len() > MAX_CHUNK {
@@ -211,7 +251,15 @@ impl Session {
             return Err(TransferError::Sequence);
         }
         let bytes = self.channel.receive()?;
-        match connection::control(&bytes)? {
+        let control = connection::control(&bytes).inspect_err(|_| {
+            if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                eprintln!(
+                    "receiver/transport: unsupported frame type {:?}",
+                    connection::diagnostic_frame_type(&bytes)
+                );
+            }
+        })?;
+        match control {
             Control::KeepAlive { ack, sequence } => {
                 if !ack {
                     self.channel.send(&connection::keep_alive(true, sequence))?;
@@ -222,15 +270,34 @@ impl Session {
                 self.channel.send(&connection::decline_upgrade(medium))?;
                 Ok(None)
             }
+            Control::UpgradeCapabilities { request } => {
+                if request {
+                    self.channel
+                        .send(&connection::upgrade_capabilities(false))?;
+                }
+                Ok(None)
+            }
             Control::Disconnect { request, ack } => {
                 if request && !ack {
                     let _ = self.channel.send(&connection::disconnect(true, true));
                 }
                 Err(TransferError::Cancelled)
             }
-            Control::Payload => match wire::decode_payload(&bytes)? {
+            Control::Payload => match wire::decode_payload(&bytes).inspect_err(|error| {
+                if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                    eprintln!(
+                        "receiver/transport: payload decoder {error:?}; {}",
+                        wire::diagnostic_payload_shape(&bytes)
+                    );
+                }
+            })? {
                 PayloadEvent::Acknowledged(id) => {
                     if !self.sent.contains(&id) {
+                        if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                            eprintln!(
+                                "receiver/transport: acknowledgement of an unknown outgoing payload"
+                            );
+                        }
                         return Err(TransferError::Sequence);
                     }
                     Ok(Some(Event::Ack(id)))
@@ -250,6 +317,16 @@ impl Session {
             || chunk.parent_folder.is_some()
             || self.received.contains(&chunk.id)
         {
+            if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                eprintln!(
+                    "receiver/transport: invalid control assembly size_limit={} file_metadata={} reused_id={} last={} body_bytes={}",
+                    chunk.total_size > MAX_CHUNK as u64,
+                    chunk.file_name.is_some() || chunk.parent_folder.is_some(),
+                    self.received.contains(&chunk.id),
+                    chunk.last,
+                    chunk.body.len()
+                );
+            }
             return Err(TransferError::Sequence);
         }
         if self.assembly.is_none() {
@@ -264,6 +341,14 @@ impl Session {
         }
         let a = self.assembly.as_mut().ok_or(TransferError::Sequence)?;
         if a.id != chunk.id || a.size != chunk.total_size || a.bytes.len() as u64 != chunk.offset {
+            if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                eprintln!(
+                    "receiver/transport: mismatched control fragment id={} size={} offset={}",
+                    a.id != chunk.id,
+                    a.size != chunk.total_size,
+                    a.bytes.len() as u64 != chunk.offset
+                );
+            }
             return Err(TransferError::Sequence);
         }
         a.bytes.extend_from_slice(&chunk.body);
@@ -426,14 +511,19 @@ impl Session {
             }
         }
     }
-    #[cfg(test)]
     pub(crate) fn acknowledge_file(&mut self, id: i64) -> Result<(), TransferError> {
-        self.channel.send(&wire::encode_ack(id))?;
+        if self.channel.supports_payload_ack() {
+            self.channel.send(&wire::encode_ack(id))?;
+        }
+        Ok(())
+    }
+    pub(crate) fn ping(&mut self) -> Result<(), TransferError> {
+        self.channel.send(&connection::keep_alive(false, 17))?;
         Ok(())
     }
     #[cfg(test)]
-    pub(crate) fn ping(&mut self) -> Result<(), TransferError> {
-        self.channel.send(&connection::keep_alive(false, 17))?;
+    pub(crate) fn request_upgrade_capabilities(&mut self) -> Result<(), TransferError> {
+        self.channel.send(&connection::upgrade_capabilities(true))?;
         Ok(())
     }
 }

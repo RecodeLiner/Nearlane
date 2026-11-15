@@ -3,14 +3,14 @@
 mod backend;
 
 use cxx_qt::casting::Upcast as _;
-use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QQmlEngine, QUrl};
+use cxx_qt_lib::{QQmlApplicationEngine, QQmlEngine, QUrl};
 
 fn main() {
     let smoke = std::env::var_os("NEARLANE_SMOKE_TEST").is_some();
     if smoke {
         eprintln!("smoke: starting Qt");
     }
-    let mut application = QGuiApplication::new();
+    let mut application = backend::ffi::create_application();
     if smoke {
         eprintln!("smoke: starting QML engine");
     }
@@ -28,7 +28,7 @@ fn main() {
     }
     if let Some(engine_ref) = engine.as_mut() {
         let base: std::pin::Pin<&mut QQmlEngine> = engine_ref.upcast_pin();
-        base.on_quit(|_| {}).release();
+        base.on_quit(|_| backend::ffi::quit_application()).release();
     }
     if let Some(application) = application.as_mut() {
         application.exec();

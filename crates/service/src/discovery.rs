@@ -29,6 +29,7 @@ impl DiscoveryStatus {
 #[derive(Debug, Default)]
 pub(crate) struct Discovery {
     pub(crate) search: Option<Search>,
+    pub(crate) watch: Option<nearlane_discovery::Watch>,
     pub(crate) devices: Vec<OwnDevice>,
     pub(crate) status: DiscoveryStatus,
 }
@@ -37,6 +38,20 @@ impl Discovery {
         *self = Self::default();
     }
     pub(crate) fn poll(&mut self) {
+        if let Some(watch) = &self.watch {
+            match watch.snapshot() {
+                Ok(devices) => {
+                    self.status = DiscoveryStatus::Found(devices.len());
+                    self.devices = devices;
+                }
+                Err(error) => {
+                    self.status = DiscoveryStatus::Failed(error);
+                    self.watch = None;
+                    self.devices.clear();
+                }
+            }
+            return;
+        }
         let Some(result) = self.search.as_ref().and_then(Search::poll) else {
             return;
         };

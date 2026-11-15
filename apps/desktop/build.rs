@@ -6,6 +6,8 @@ fn main() {
     )
     .qt_module("QuickControls2")
     .qt_module("Network")
+    .qt_module("Widgets")
+    .qrc("qml/resources.qrc")
     .include_dir("src")
     .file("src/backend.rs")
     .build();

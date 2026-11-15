@@ -86,8 +86,9 @@ The file engine uses pinned public Google UKEY2/D2D sources with RustCrypto.
 Framing bounds apply before allocation; a failed integrity/sequence check makes
 the channel unusable. The explicit outgoing operation connects only to a recently
 certificate-matched own-device candidate and requires mutual role-bound paired-key
-verification. It does not authenticate arbitrary Google contacts. No production
-file receiver is advertised on the LAN.
+verification. It does not authenticate arbitrary Google contacts. The explicit
+Start receiving action now advertises an own-device-only receiver; it is off by
+default and never publishes a plaintext device name.
 
 Explicit device search browses only the NearbySharing DNS-SD service
 for 20 seconds, with limits of 1024 events and 32 candidate endpoints. It does not
@@ -113,8 +114,35 @@ sender/receiver roles, plus explicit successful peer results. Credentials are
 synthetic and locally distributed by the harness. This tests the new verifier
 and frame shapes, not Google-backed peer identity or a full Android connection.
 
-The initial receiver accepts one approved file, enforces size/ID/type/offset/EOF
-consistency in the local harness; it is not a production incoming listener.
+The incoming worker accepts private/link-local IPv4 peers only and requires
+matched active own-device metadata plus full mutual private proofs. Only then
+may the introduction and a local consent prompt be displayed. No file content
+is accepted before consent, and one file up to 64 MiB is supported. The listener
+uses a ten-minute waiting window, sixteen attempt bound, fifteen-second absolute
+preflight budget and sixty-second consent window. Each session has its own
+socket/cancellation/decision state; late decisions cannot authorize a new session.
+File completion uses the existing staging/sync/non-overwrite sink. Stop/sign-out
+and session loss shut down established IO and withdraw the advertisement as the
+worker finishes. Completed files remain; incomplete staging is removed. The
+outgoing operation and certificate regeneration are blocked while receiving.
+An opt-in diagnostic switch records only phase enums and safe failure categories.
+Successful Android-to-PC saving was confirmed after the interleaved Android
+control messages were implemented. See docs/research/native-incoming.md.
+
+The follow-up desktop background mode continuously browses only the same private
+service and trusted cache, with 32-peer snapshots and 1024-event/minute bounds.
+It never queues unbounded updates or probes arbitrary peers. Local advertisements
+are excluded from outgoing results. Reception remains explicitly enabled and
+each file needs local consent; worker restart after completion/expiry does not
+authorize the next file. Stop/sign-out/quit clear that intent. Notifications are
+generic and never include filenames, device identifiers, keys or content.
+The desktop's default destination uses the OS Downloads location plus Nearlane,
+created only when reception is enabled; remote data cannot choose that folder.
+Native KDE checks verified tray availability, close/show behavior, the default
+destination after login cancellation/sign-out, and notification invocation. A
+native continuous-watch test verified appearance and withdrawal of only an
+owned synthetic advertisement, without account access. Cross-platform tray and
+Bluetooth behavior are not verified.
 The outgoing desktop operation opens only an explicitly selected regular file,
 up to 64 MiB, on a worker. Unix source opens are nonblocking and refuse symlinks.
 Its connection prelude is plain request, UKEY2, then mutual plain acceptance

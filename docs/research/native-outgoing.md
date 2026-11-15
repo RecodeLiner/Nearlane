@@ -33,13 +33,14 @@ must be recent; live proofs must match the Google-delivered certificate. No
 public/unknown-peer fallback exists. Both proofs and peer SUCCESS precede file
 metadata, and receiver acceptance precedes file content.
 
-The adapter announces the computer/laptop form factor (ShareTargetType 3), with
-no plaintext public device name. Its certificate's encrypted device name is
-currently Nearlane. It reassembles bounded BYTES fragments, services keep-alives during
-upload, validates IDs/ACKs and declines bandwidth redirection. Only the selected
-socket is used. Absolute deadlines also bound partial reads. Cancellation shuts
-down established IO. Initial scope: one regular file up to 64 MiB, IPv4 Wi-Fi LAN,
-no incoming listener or folder/resume support. Unix symlinks are refused.
+The adapter announces the computer/laptop form factor (ShareTargetType 3), with no
+plaintext public device name. Its certificate's encrypted device name is currently
+Nearlane. It reassembles bounded BYTES fragments, services keep-alives during upload,
+validates IDs/ACKs and declines bandwidth redirection. Only the selected socket is used.
+Absolute deadlines also bound partial reads. Cancellation shuts down established IO.
+Initial scope: one regular file up to 64 MiB, IPv4 Wi-Fi LAN, no folder/resume support.
+Incoming reception is implemented separately; see native-incoming.md. Unix symlinks are
+refused.
 
 Chunks include the sequential index in public field 4. EOF is a separate empty
 LAST_CHUNK, with the next index and no body field, matching the published sender.
@@ -76,7 +77,8 @@ The next real test with chunk indices, omitted empty EOF body and computer form
 factor again passed private verification and receiver acceptance.
 The nearlane-test.txt file was confirmed saved and opened on Android. This establishes
 one successful 94-byte outgoing private file transfer on that phone; it does not
-establish background discovery, large-file compatibility or incoming reception.
+establish screen-off delivery or large-file Android compatibility. Incoming
+reception is separately verified in [native-incoming.md](native-incoming.md).
 The phone closed without a file ACK, consistent with its advertised feature
 version 4. Safe connection checkpoints are reported without recording handshake
 messages, account tokens or traffic. The UI/CLI continues to describe the missing

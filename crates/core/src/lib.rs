@@ -3,7 +3,7 @@
 /// The privacy policy enforced by the prototype.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Visibility {
-    /// Stop discovery and reject incoming transfers.
+    /// Do not advertise or receive; outgoing discovery has a separate switch.
     #[default]
     Hidden,
     /// Permit only peers authenticated as contacts.

@@ -65,5 +65,6 @@ opening a browser or contacting Google.
 2. Device registration and certificate publication/query are confirmed: 9 records,
    6 active, no malformed records in the recorded session.
 3. A live private handshake and a 94-byte transfer to Android are confirmed.
+4. The same file was received from Android and saved on the PC.
 
 Legal and provider-policy limitations: ../LICENSING.md.

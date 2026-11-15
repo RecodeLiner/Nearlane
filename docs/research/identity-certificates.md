@@ -78,4 +78,4 @@ sign-out does not remove browser cookies or revoke the OAuth application grant.
 Certificate exchange alone does not enable trust. Private Wi-Fi LAN discovery,
 account-backed mutual proofs and a 94-byte outgoing transfer have been implemented
 and verified on a real Android phone; see [native-outgoing.md](native-outgoing.md).
-Incoming reception remains outside this implementation stage.
+Incoming reception is also implemented and verified; see [native-incoming.md](native-incoming.md).

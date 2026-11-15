@@ -115,9 +115,13 @@ impl AccountStatus {
             Self::Unconfigured => "Local sign-in configuration is not available.".into(),
             Self::Ready => "Ready to sign in through your browser.".into(),
             Self::Restoring => "Restoring saved Google permission…".into(),
-            Self::WaitingForBrowser => "Complete sign-in in your browser. Choose a test account.".into(),
+            Self::WaitingForBrowser => {
+                "Complete sign-in in your browser. Choose a test account.".into()
+            }
             Self::Exchanging => "Checking the permission returned by Google…".into(),
-            Self::Authorized => "Quick Share permission granted. This device remains hidden while private sharing support is being completed.".into(),
+            Self::Authorized => {
+                "Quick Share permission granted. Receiving starts only when you enable it.".into()
+            }
             Self::SignedOut => "Signed out. This device is hidden.".into(),
             Self::Expired => "The in-memory session expired. Sign in again.".into(),
             Self::Failed(error) => error.to_string(),

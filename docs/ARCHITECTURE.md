@@ -45,7 +45,7 @@ non-UI Rust packages forbid unsafe code.
    (9 own-device certificates, 6 active, no malformed records).
    Wi-Fi LAN advertisement matching is confirmed on the authorized Android phone.
    Live account-backed verification is implemented and required for each transfer.
-4. One small file exchanged with Android while public visibility remains off.
+4. A 94-byte file sent to Android and received back on the PC, with public visibility off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.
 
 The encrypted file engine now streams a single file in bounded Nearby payloads, with a
@@ -61,9 +61,14 @@ successfully on that phone. No wire receipt is inferred from that external obser
 legacy EOF cleanup is bounded and missing receipts remain explicit in the sender status.
 The legacy local harness uses real paired-key frame shapes and synthetic certificate
 signatures instead of process-local auth-token exchange. The desktop explicitly browses
-Wi-Fi LAN advertisements, shows only names from certificate-authenticated metadata, and
-remains hidden. No file receiver is advertised and private visibility capabilities stay
-disabled.
+Wi-Fi LAN advertisements and shows only names from certificate-authenticated metadata. A
+separate receiving worker publishes private endpoint information only after Start
+receiving. It requires a verified own peer and local consent, then reuses the staging
+sink and duplex session. The service owns its lifetime, prevents concurrent
+outgoing/certificate rotation, and resets receiving on sign-out or session loss.
+Effective visibility is OwnDevices only while the receiver is advertised; Contacts
+remains unavailable. The computer is hidden by default. Discovery does not enable
+reception.
 
 Sign-out is owned by the service: reset visibility/trust, then cancel the browser
 attempt and drop the account session. Future discovery/connections/certificate

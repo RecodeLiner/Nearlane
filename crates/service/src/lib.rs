@@ -1,6 +1,7 @@
 //! Application state shared by CLI and Qt, with explicit private-mode gating.
 mod certificates;
 mod discovery;
+mod receiving;
 mod transfers;
 pub use certificates::CertificateRow;
 use discovery::Discovery;
@@ -23,6 +24,9 @@ pub struct Service {
     private_setup_started: bool,
     discovery: Discovery,
     transfers: Transfers,
+    receiving: receiving::Receiving,
+    continuous_discovery: bool,
+    discovery_retry: std::time::Instant,
 }
 
 impl Default for Service {
@@ -37,6 +41,9 @@ impl Default for Service {
             private_setup_started: false,
             discovery: Discovery::default(),
             transfers: Transfers::default(),
+            receiving: receiving::Receiving::default(),
+            continuous_discovery: false,
+            discovery_retry: std::time::Instant::now(),
         }
     }
 }
@@ -61,6 +68,7 @@ impl Service {
         }
         self.account = Account::from_local_config(path);
         self.transfers.reset();
+        self.receiving.reset();
         self.discovery.reset();
         self.private_setup_started = false;
     }
@@ -75,6 +83,7 @@ impl Service {
     /// Cancel the current attempt and discard any late token response.
     pub fn cancel_sign_in(&mut self, reason: LoginError) {
         self.transfers.reset();
+        self.stop_receiving();
         self.discovery.reset();
         self.account.cancel(reason);
     }
@@ -89,6 +98,7 @@ impl Service {
     /// these adapters do not yet exist in this prototype. No public fallback.
     pub fn sign_out(&mut self) {
         self.transfers.reset();
+        self.receiving.reset();
         self.discovery.reset();
         self.visibility = Visibility::Hidden;
         self.capabilities = Capabilities::default();
@@ -102,19 +112,59 @@ impl Service {
         if self.account.status() == AccountStatus::Authorized {
             self.discovery.poll();
             self.transfers.poll();
+            self.receiving.poll();
         } else {
             self.transfers.reset();
             self.discovery.reset();
+            self.receiving.reset();
         }
+        let advertised = self
+            .receiving
+            .job
+            .as_ref()
+            .is_some_and(|j| j.phase() != nearlane_transfer::ReceivePhase::Starting);
+        self.visibility = if advertised {
+            Visibility::OwnDevices
+        } else {
+            Visibility::Hidden
+        };
+        self.capabilities.account_certificates = advertised;
         if self.account.status() == AccountStatus::Authorized && !self.private_setup_started {
             self.private_setup_started = true;
             let _ = self.account.prepare_own_devices();
+        }
+        if self.continuous_discovery
+            && self.account.status() == AccountStatus::Authorized
+            && matches!(self.account.private_status(), PrivateStatus::Ready(_))
+            && self.discovery.watch.is_none()
+            && self.discovery.search.is_none()
+            && std::time::Instant::now() >= self.discovery_retry
+        {
+            self.discovery_retry = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            let certificates = self
+                .account
+                .own_device_certificates()
+                .into_iter()
+                .filter(|c| !self.account.is_local_certificate(c.id()))
+                .collect();
+            match nearlane_discovery::Watch::start(certificates) {
+                Ok(watch) => self.discovery.watch = Some(watch),
+                Err(error) => self.discovery.status = DiscoveryStatus::Failed(error),
+            }
+        }
+        if self.receiving.enabled
+            && self.receiving.job.is_none()
+            && std::time::Instant::now() >= self.receiving.restart
+            && self.account.status() == AccountStatus::Authorized
+            && !self.account.busy()
+        {
+            self.launch_receiver();
         }
     }
 
     /// Retry the same owned registration without changing device visibility.
     pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {
-        if self.transfer_busy() {
+        if self.transfer_busy() || self.receiving_active() {
             return Err(IdentityError::Busy);
         }
         self.discovery.reset();
@@ -130,7 +180,13 @@ impl Service {
         }
         self.discovery.reset();
         let result = if matches!(self.account.private_status(), PrivateStatus::Ready(_)) {
-            Search::start(self.account.own_device_certificates())
+            Search::start(
+                self.account
+                    .own_device_certificates()
+                    .into_iter()
+                    .filter(|c| !self.account.is_local_certificate(c.id()))
+                    .collect(),
+            )
         } else {
             Err(DiscoveryError::NoCertificates)
         };
@@ -145,7 +201,20 @@ impl Service {
 
     /// Cancel discovery and forget candidates before any later search.
     pub fn cancel_discovery(&mut self) {
+        self.continuous_discovery = false;
         self.discovery.reset();
+    }
+    /// Desktop background discovery; constructing the service/CLI stays offline.
+    pub fn set_continuous_discovery(&mut self, enabled: bool) {
+        self.continuous_discovery = enabled;
+        if !enabled {
+            self.discovery.reset();
+        }
+        self.discovery_retry = std::time::Instant::now();
+    }
+    /// Whether ongoing discovery was requested, independent of current login.
+    pub fn continuous_discovery(&self) -> bool {
+        self.continuous_discovery
     }
     /// Safe local-network search progress.
     pub fn discovery_status(&self) -> DiscoveryStatus {
@@ -176,6 +245,10 @@ impl Service {
     /// certificates; its live paired-key proof gates all offered file content.
     pub fn send_selected_file(&mut self, index: usize) {
         if self.transfer_busy() || self.account.busy() {
+            return;
+        }
+        if self.receiving_active() {
+            self.transfers.message = "Stop receiving before starting an outgoing transfer.".into();
             return;
         }
         self.transfers.completed = false;
@@ -215,6 +288,96 @@ impl Service {
     /// Whether the most recent attempt received the matching file ACK.
     pub fn transfer_completed(&self) -> bool {
         self.transfers.completed
+    }
+    /// Select the local destination through the local folder chooser.
+    pub fn select_receive_directory(&mut self, path: std::path::PathBuf) {
+        if !self.receiving_active() {
+            self.receiving.directory = Some(path);
+        }
+    }
+    /// Explicitly selected local folder only, never a remotely supplied destination.
+    pub fn receive_directory(&self) -> String {
+        self.receiving
+            .directory
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    }
+    /// Explicitly publish a private receiver for one approved file.
+    pub fn start_receiving(&mut self) {
+        if self.receiving_active() || self.transfer_busy() || self.account.busy() {
+            return;
+        }
+        self.receiving.enabled = true;
+        self.launch_receiver();
+    }
+    fn launch_receiver(&mut self) {
+        self.receiving.saved = false;
+        let Some(directory) = self.receiving.directory.clone() else {
+            self.receiving.message = "Choose a destination folder first.".into();
+            self.receiving.enabled = false;
+            return;
+        };
+        let identity = match self.account.transfer_identity() {
+            Ok(i) => i,
+            Err(IdentityError::Busy) => {
+                self.receiving.restart =
+                    std::time::Instant::now() + std::time::Duration::from_secs(1);
+                return;
+            }
+            Err(_) => {
+                self.receiving.enabled = false;
+                self.receiving.message = "Prepare current own-device keys before receiving.".into();
+                return;
+            }
+        };
+        match nearlane_transfer::ReceiveJob::start(
+            identity,
+            self.account.own_device_certificates(),
+            directory,
+            nearlane_transfer::RECEIVE_PORT,
+        ) {
+            Ok(job) => {
+                self.receiving.message = job.phase().message();
+                self.receiving.job = Some(job);
+            }
+            Err(error) => {
+                self.receiving.enabled = false;
+                self.receiving.message = error.to_string();
+            }
+        }
+    }
+    /// Withdraw the advertisement, interrupt established IO and discard offers.
+    pub fn stop_receiving(&mut self) {
+        self.receiving.stop();
+        self.visibility = Visibility::Hidden;
+        self.capabilities = Capabilities::default();
+    }
+    /// Whether the explicitly enabled receiver owns its worker/listener.
+    pub fn receiving_active(&self) -> bool {
+        self.receiving.enabled || self.receiving.job.is_some()
+    }
+    /// Safe receiver phase or saved-file outcome.
+    pub fn receive_status(&self) -> &str {
+        &self.receiving.message
+    }
+    /// Metadata of an own device that passed live mutual private proofs.
+    pub fn incoming_offer(&self) -> Option<nearlane_transfer::IncomingOffer> {
+        self.receiving.offer()
+    }
+    /// First local consent decision applies only to the current verified offer.
+    pub fn decide_incoming(&mut self, accept: bool) {
+        if let Some(job) = &self.receiving.job {
+            let _ = job.decide(accept);
+        }
+    }
+    /// Whether the latest receiving session durably saved a complete file.
+    pub fn received_file_saved(&self) -> bool {
+        self.receiving.saved
+    }
+    /// Completed incoming files during this app run, for one notification each.
+    pub fn received_count(&self) -> u32 {
+        self.receiving.count
     }
     /// Plain phase/status without paths, account identifiers or keys.
     pub fn transfer_status(&self) -> &str {
@@ -289,6 +452,10 @@ impl Service {
 
     /// Change visibility only when the necessary trust has been established.
     pub fn set_visibility(&mut self, requested: Visibility) -> Result<(), UnavailableVisibility> {
+        if requested == Visibility::Hidden {
+            self.stop_receiving();
+            return Ok(());
+        }
         self.capabilities.require(requested)?;
         self.visibility = requested;
         Ok(())
@@ -297,8 +464,13 @@ impl Service {
     /// A truthful status suitable for display without exposing private data.
     pub fn status(&self) -> String {
         format!(
-            "Platform: {:?}. Hidden. Experimental outgoing transfers to verified own devices.",
-            nearlane_platform::current()
+            "Platform: {:?}. {} Experimental private file transfers over Wi-Fi LAN.",
+            nearlane_platform::current(),
+            if self.receiving_active() {
+                "Private receiver is enabled."
+            } else {
+                "Hidden."
+            }
         )
     }
 }
@@ -307,6 +479,30 @@ impl Service {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn continuous_discovery_waits_for_login_and_can_be_stopped_without_a_network() {
+        let mut service = Service::default();
+        service.set_continuous_discovery(true);
+        service.poll_account();
+        assert!(service.continuous_discovery());
+        assert!(service.discovery.watch.is_none());
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        service.cancel_discovery();
+        assert!(!service.continuous_discovery());
+        assert!(service.own_device_names().is_empty());
+    }
+    #[test]
+    fn unauthenticated_receiving_does_not_bind_and_logout_keeps_only_folder_preference() {
+        let mut service = Service::default();
+        service.select_receive_directory(std::path::PathBuf::from("synthetic-not-opened"));
+        service.start_receiving();
+        assert!(!service.receiving_active());
+        assert!(service.incoming_offer().is_none());
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        service.sign_out();
+        assert_eq!(service.receive_directory(), "synthetic-not-opened");
+        assert!(!service.receiving_active());
+    }
     #[test]
     fn unauthenticated_file_action_does_not_connect_and_sign_out_forgets_selection() {
         let mut service = Service::default();

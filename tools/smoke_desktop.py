@@ -15,7 +15,10 @@ def main():
     parser.add_argument("binary", type=Path)
     parser.add_argument("--kde", action="store_true", help="also check the KDE desktop style")
     parser.add_argument("--native", action="store_true", help="briefly show a window on the desktop")
+    parser.add_argument("--tray", action="store_true", help="check native tray close/show and request a test notification")
     args = parser.parse_args()
+    if args.tray and not args.native:
+        parser.error("--tray requires --native")
     binary = args.binary.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="nearlane-smoke-") as directory:
         config = Path(directory) / "synthetic-client.json"
@@ -36,6 +39,10 @@ def check(binary, args, config):
         )
         if not args.native:
             env["QT_QPA_PLATFORM"] = "offscreen"
+        if args.tray:
+            env["NEARLANE_TRAY_SMOKE_TEST"] = "1"
+        else:
+            env.pop("NEARLANE_TRAY_SMOKE_TEST", None)
         if style:
             env.update(QT_QUICK_CONTROLS_STYLE=style, QT_QPA_PLATFORMTHEME="kde")
         try:
@@ -53,12 +60,15 @@ def check(binary, args, config):
             or "smoke: policy checked; device remains hidden" not in output
             or "smoke: local sign-in cancelled; device remains hidden" not in output
             or "smoke: signed out; device remains hidden" not in output
+            or (args.tray and "smoke: tray close/show and notification checked" not in output)
             or any(error in output for error in errors)
         ):
             print(f"FAIL ({style or 'session style'}): exit {result.returncode}", file=sys.stderr)
             print(output, file=sys.stderr)
             return 1
         print(f"PASS ({style or 'session style'}): QML loaded, local login cancelled, device hidden")
+        if args.tray:
+            print("PASS: native tray available, close hides, show restores, notification requested")
     return 0
 
 

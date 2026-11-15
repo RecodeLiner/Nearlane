@@ -230,6 +230,39 @@ fn validate_chunk(chunk: &PayloadChunk) -> Result<(), WireError> {
     Ok(())
 }
 
+/// Schema-only payload diagnostics. Contents, filenames and payload IDs are omitted.
+pub fn diagnostic_payload_shape(bytes: &[u8]) -> String {
+    if bytes.len() > crate::secure::MAX_PLAINTEXT {
+        return "oversized payload envelope".into();
+    }
+    let Ok(f) = NearbyFrame::decode(bytes) else {
+        return "invalid payload envelope".into();
+    };
+    let Some(t) = f.v1.and_then(|v| v.transfer) else {
+        return "missing payload frame".into();
+    };
+    let mut out = format!("payload packet={:?}", t.packet_type);
+    if let Some(h) = t.header {
+        out.push_str(&format!(
+            " kind={:?} total={:?} name={} folder={}",
+            h.kind,
+            h.total_size,
+            h.file_name.is_some(),
+            h.parent_folder.is_some()
+        ));
+    }
+    if let Some(c) = t.chunk {
+        out.push_str(&format!(
+            " flags={:?} offset={:?} body_bytes={} index={:?}",
+            c.flags,
+            c.offset,
+            c.body.as_ref().map_or(0, Vec::len),
+            c.index
+        ));
+    }
+    out
+}
+
 fn envelope(transfer: Transfer) -> NearbyFrame {
     NearbyFrame {
         version: Some(1),
@@ -371,6 +404,54 @@ pub fn decode_share(bytes: &[u8]) -> Result<ShareMessage, WireError> {
         Some(6) if v1.introduction.is_none() && v1.response.is_none() => Ok(ShareMessage::Cancel),
         _ => Err(WireError::Unsupported),
     }
+}
+
+/// Bounded schema-only diagnostics. Never includes names, identifiers, payload
+/// bytes, MIME strings or keys; suitable only for opt-in protocol troubleshooting.
+pub fn diagnostic_share_shape(bytes: &[u8]) -> String {
+    if bytes.len() > MAX_CHUNK {
+        return "sharing frame exceeds bound".into();
+    }
+    let Ok(f) = ShareFrame::decode(bytes) else {
+        return "invalid sharing envelope".into();
+    };
+    let Some(v) = f.v1 else {
+        return "missing sharing v1".into();
+    };
+    let mut summary = format!(
+        "sharing version={:?} type={:?} intro={} response={} certs={} progress={} encryption={} key_result={} bindings={} response_status={:?}",
+        f.version,
+        v.kind,
+        v.introduction.is_some(),
+        v.response.is_some(),
+        v.certificates.is_some(),
+        v.progress.is_some(),
+        v.encryption.is_some(),
+        v.key_result.is_some(),
+        v.bindings.is_some(),
+        v.response.as_ref().and_then(|r| r.status)
+    );
+    if let Some(i) = v.introduction {
+        summary.push_str(&format!(
+            " files={} texts={} wifi={} apps={} streams={}",
+            i.files.len(),
+            i.text.len(),
+            i.wifi.len(),
+            i.apps.len(),
+            i.streams.len()
+        ));
+        if let Some(m) = i.files.first() {
+            summary.push_str(&format!(
+                " name={} payload_id={} size={} attachment_id={} parent_folder={} negative_size={} name_length={} mime_length={}",
+                m.name.is_some(),
+                m.payload_id.is_some(),
+                m.size.is_some(),
+                m.id.is_some(),
+                m.parent_folder.as_ref().is_some_and(|s| !s.is_empty()), m.size.is_some_and(|n|n<0), m.name.as_ref().map_or(0,String::len), m.mime_type.as_ref().map_or(0,String::len)
+            ));
+        }
+    }
+    summary
 }
 
 fn validate_metadata(meta: &FileMetadata) -> Result<(), WireError> {

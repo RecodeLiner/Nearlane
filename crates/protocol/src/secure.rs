@@ -26,6 +26,20 @@ pub const MAX_PLAINTEXT: usize = 128 * 1024;
 /// Safe connection-prelude checkpoints; no peer data or cryptographic material.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ConnectionStep {
+    /// Reading the initiating peer's plain Nearby request.
+    IncomingRequestRead,
+    /// Validating the initiating peer's bounded request metadata.
+    IncomingRequestValidation,
+    /// Reading the initiating peer's UKEY2 hello.
+    ClientHelloRead,
+    /// Validating the initiating peer's UKEY2 hello.
+    ClientHelloValidation,
+    /// Writing the local UKEY2 hello as receiver.
+    ServerHelloWrite,
+    /// Reading the initiating peer's UKEY2 completion.
+    ClientFinishRead,
+    /// Validating the initiating peer's UKEY2 completion.
+    ClientFinishValidation,
     /// Writing the initial Nearby request.
     Request,
     /// Reading the server's UKEY2 response.
@@ -110,10 +124,13 @@ impl<S: Read + Write> SecureChannel<S> {
         channel.accept_nearby()?;
         Ok(channel)
     }
-    /// Receiving prelude for the process-owned compatibility test peer.
+    /// Receiving prelude. Returned endpoint metadata is unverified; the caller
+    /// must match an own-device certificate and require live proofs before offers.
     pub fn respond_nearby(mut stream: S) -> Result<(Self, Vec<u8>), ChannelError> {
-        let bytes = read_frame_bounded(&mut stream, 4096)?;
-        let info = crate::connection::request_info(&bytes).map_err(|_| ChannelError::Handshake)?;
+        let bytes = read_frame_bounded(&mut stream, 4096)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::IncomingRequestRead))?;
+        let info = crate::connection::request_info(&bytes)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::IncomingRequestValidation))?;
         let mut channel = Self::respond(stream)?;
         channel.accept_nearby()?;
         Ok((channel, info))
@@ -179,16 +196,20 @@ impl<S: Read + Write> SecureChannel<S> {
             HandshakeImplementation::PublicKeyInProtobuf,
             &[NextProtocol::Aes256CbcHmacSha256],
         );
-        let init = read_frame_bounded(&mut stream, MAX_HANDSHAKE)?;
+        let init = read_frame_bounded(&mut stream, MAX_HANDSHAKE)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ClientHelloRead))?;
         handshake
             .handle_handshake_message(&init)
-            .map_err(|_| ChannelError::Handshake)?;
-        send_handshake(&mut stream, &handshake)?;
-        let finish = read_frame_bounded(&mut stream, MAX_HANDSHAKE)?;
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ClientHelloValidation))?;
+        send_handshake(&mut stream, &handshake)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ServerHelloWrite))?;
+        let finish = read_frame_bounded(&mut stream, MAX_HANDSHAKE)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ClientFinishRead))?;
         handshake
             .handle_handshake_message(&finish)
-            .map_err(|_| ChannelError::Handshake)?;
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ClientFinishValidation))?;
         Self::complete(stream, &mut handshake)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::KeyDerivation))
     }
 
     fn complete(stream: S, handshake: &mut impl D2DHandshakeContext) -> Result<Self, ChannelError> {

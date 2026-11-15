@@ -1,6 +1,10 @@
-//! Bounded, explicit Wi-Fi LAN discovery. Never advertises or connects to peers.
+//! Bounded Wi-Fi LAN discovery and explicit private receiver advertisements.
 //! Only API-delivered own-device certificates may authenticate candidate names.
 mod advertisement;
+mod publication;
+mod watch;
+pub use publication::PrivateAdvertisement;
+pub use watch::Watch;
 
 use mdns_sd::{ResolvedService, ServiceDaemon, ServiceEvent};
 use nearlane_certificates::{RemoteCertificate, now_seconds};
@@ -47,10 +51,32 @@ impl fmt::Display for DiscoveryError {
 }
 impl std::error::Error for DiscoveryError {}
 
+/// Authenticate incoming endpoint metadata against current own-device records.
+/// Any plaintext advertised name is ignored; live signatures are still required.
+pub fn match_incoming(
+    info: &[u8],
+    certificates: &[Arc<RemoteCertificate>],
+) -> Option<(Arc<RemoteCertificate>, String)> {
+    if certificates.len() > 256 {
+        return None;
+    }
+    let key = advertisement::decode_info(info, *b"INCM").ok()?.key;
+    let now = now_seconds().ok()?;
+    certificates
+        .iter()
+        .filter(|c| c.for_own_device())
+        .find_map(|c| {
+            c.identify(key, now)
+                .ok()
+                .map(|m| (Arc::clone(c), m.device_name().to_owned()))
+        })
+}
+
 /// Candidate authenticated by an advertisement commitment and metadata AEAD.
 /// This still requires a live paired-key signature proof before any file use.
 #[derive(Clone)]
 pub struct OwnDevice {
+    service: String,
     name: String,
     certificate: Arc<RemoteCertificate>,
     endpoint: [u8; 4],
@@ -213,6 +239,7 @@ fn identify(
         }
         if let Ok(metadata) = certificate.identify(ad.key, now) {
             return Some(OwnDevice {
+                service: fullname.into(),
                 name: metadata.device_name().into(),
                 certificate: Arc::clone(certificate),
                 endpoint: ad.endpoint,

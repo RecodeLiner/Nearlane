@@ -9,15 +9,24 @@ pub mod ffi {
         type QStringList = cxx_qt_lib::QStringList;
         include!("cxx-qt-lib/qurl.h");
         type QUrl = cxx_qt_lib::QUrl;
+        include!("cxx-qt-lib/qguiapplication.h");
+        type QGuiApplication = cxx_qt_lib::QGuiApplication;
         include!("browser.h");
         #[namespace = "nearlane::desktop"]
         fn open_browser(url: &QUrl) -> bool;
+        #[namespace = "nearlane::desktop"]
+        fn create_application() -> UniquePtr<QGuiApplication>;
+        #[namespace = "nearlane::desktop"]
+        fn default_receive_directory() -> QString;
+        #[namespace = "nearlane::desktop"]
+        fn quit_application();
     }
     extern "RustQt" {
         #[qobject]
         #[qml_element]
         #[qproperty(QString, status)]
         #[qproperty(bool, smoke_test)]
+        #[qproperty(bool, tray_test)]
         #[qproperty(QString, account_status)]
         #[qproperty(bool, account_configured)]
         #[qproperty(bool, account_busy)]
@@ -35,6 +44,13 @@ pub mod ffi {
         #[qproperty(QString, selected_send_name)]
         #[qproperty(QString, transfer_status)]
         #[qproperty(bool, transfer_busy)]
+        #[qproperty(QString, receive_directory)]
+        #[qproperty(QString, receive_status)]
+        #[qproperty(QString, incoming_offer)]
+        #[qproperty(bool, receiving_active)]
+        #[qproperty(bool, receive_pending)]
+        #[qproperty(bool, continuous_discovery)]
+        #[qproperty(u32, received_count)]
         type Backend = super::BackendRust;
 
         #[qinvokable]
@@ -65,6 +81,18 @@ pub mod ffi {
         fn send_selected_file(self: Pin<&mut Backend>, index: i32);
         #[qinvokable]
         fn cancel_transfer(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn select_receive_directory(self: Pin<&mut Backend>, url: &QUrl);
+        #[qinvokable]
+        fn start_receiving(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn stop_receiving(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn decide_incoming(self: Pin<&mut Backend>, accept: bool);
+        #[qinvokable]
+        fn set_background_discovery(self: Pin<&mut Backend>, enabled: bool);
+        #[qinvokable]
+        fn shutdown(self: Pin<&mut Backend>);
     }
 }
 
@@ -77,6 +105,7 @@ use std::pin::Pin;
 pub struct BackendRust {
     status: QString,
     smoke_test: bool,
+    tray_test: bool,
     account_status: QString,
     account_configured: bool,
     account_busy: bool,
@@ -94,6 +123,13 @@ pub struct BackendRust {
     selected_send_name: QString,
     transfer_status: QString,
     transfer_busy: bool,
+    receive_directory: QString,
+    receive_status: QString,
+    incoming_offer: QString,
+    receiving_active: bool,
+    receive_pending: bool,
+    continuous_discovery: bool,
+    received_count: u32,
     service: Service,
 }
 
@@ -104,9 +140,15 @@ impl Default for BackendRust {
         if !smoke_test && service.account_configured() {
             let _ = service.restore_saved_sign_in();
         }
+        let folder = ffi::default_receive_directory().to_string();
+        if !folder.is_empty() {
+            service.select_receive_directory(folder.into());
+        }
+        service.set_continuous_discovery(!smoke_test);
         Self {
             status: QString::from(service.status().as_str()),
             smoke_test,
+            tray_test: smoke_test && std::env::var_os("NEARLANE_TRAY_SMOKE_TEST").is_some(),
             account_status: QString::from(service.account_status().message().as_str()),
             account_configured: service.account_configured(),
             account_busy: false,
@@ -124,6 +166,13 @@ impl Default for BackendRust {
             selected_send_name: QString::default(),
             transfer_status: QString::from(service.transfer_status()),
             transfer_busy: false,
+            receive_directory: QString::from(service.receive_directory().as_str()),
+            receive_status: QString::from(service.receive_status()),
+            incoming_offer: QString::default(),
+            receiving_active: false,
+            receive_pending: false,
+            continuous_discovery: !smoke_test,
+            received_count: 0,
             service,
         }
     }
@@ -155,6 +204,17 @@ impl ffi::Backend {
         let transfer_status = self.rust().service.transfer_status().to_owned();
         let transfer_busy = self.rust().service.transfer_busy();
         let selected_send_name = self.rust().service.selected_send_name();
+        let receive_directory = self.rust().service.receive_directory();
+        let receive_status = self.rust().service.receive_status().to_owned();
+        let receiving_active = self.rust().service.receiving_active();
+        let offer = self.rust().service.incoming_offer();
+        let receive_pending = offer.is_some();
+        let continuous_discovery = self.rust().service.continuous_discovery();
+        let received_count = self.rust().service.received_count();
+        let incoming_offer = offer
+            .map(|o| format!("{}\n{}\n{} bytes", o.sender, o.name, o.bytes))
+            .unwrap_or_default();
+        let status = self.rust().service.status();
         let zone = QTimeZone::system_time_zone();
         let rows = self
             .rust()
@@ -219,7 +279,18 @@ impl ffi::Backend {
             .set_selected_send_name(QString::from(selected_send_name.as_str()));
         self.as_mut()
             .set_transfer_status(QString::from(transfer_status.as_str()));
-        self.set_transfer_busy(transfer_busy);
+        self.as_mut().set_transfer_busy(transfer_busy);
+        self.as_mut()
+            .set_receive_directory(QString::from(receive_directory.as_str()));
+        self.as_mut()
+            .set_receive_status(QString::from(receive_status.as_str()));
+        self.as_mut()
+            .set_incoming_offer(QString::from(incoming_offer.as_str()));
+        self.as_mut().set_receiving_active(receiving_active);
+        self.as_mut().set_receive_pending(receive_pending);
+        self.as_mut().set_continuous_discovery(continuous_discovery);
+        self.as_mut().set_received_count(received_count);
+        self.set_status(QString::from(status.as_str()));
     }
 
     /// Start an explicitly requested login in the system browser; QML never sees the URL.
@@ -340,6 +411,52 @@ impl ffi::Backend {
         self.update_account();
     }
 
+    /// Explicit native destination-folder selection.
+    pub fn select_receive_directory(mut self: Pin<&mut Self>, url: &QUrl) {
+        use cxx_qt::CxxQtType as _;
+        if let Some(path) = url.to_local_file() {
+            self.as_mut()
+                .rust_mut()
+                .service
+                .select_receive_directory(std::path::PathBuf::from(path.to_string()));
+        }
+        self.update_account();
+    }
+    /// Enable only the certificate-backed private LAN receiver.
+    pub fn start_receiving(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.start_receiving();
+        self.update_account();
+    }
+    /// Withdraw receiver visibility and cancel established incoming IO.
+    pub fn stop_receiving(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.stop_receiving();
+        self.update_account();
+    }
+    /// Explicit local consent, after live private device verification.
+    pub fn decide_incoming(mut self: Pin<&mut Self>, accept: bool) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.decide_incoming(accept);
+        self.update_account();
+    }
+    /// Explicitly controlled continuous private discovery, including while hidden.
+    pub fn set_background_discovery(mut self: Pin<&mut Self>, enabled: bool) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut()
+            .rust_mut()
+            .service
+            .set_continuous_discovery(enabled);
+        self.update_account();
+    }
+    /// Stop sharing workers on Quit without deleting the saved account grant.
+    pub fn shutdown(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.cancel_discovery();
+        self.as_mut().rust_mut().service.stop_receiving();
+        self.as_mut().rust_mut().service.cancel_transfer();
+    }
+
     /// Report account support without starting a login or widening visibility.
     pub fn check_contacts(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
@@ -350,7 +467,7 @@ impl ffi::Backend {
             .set_visibility(Visibility::Contacts)
         {
             Ok(()) => "Contacts are available.",
-            Err(_) => "Contacts are not available yet. The device remains hidden.",
+            Err(_) => "Contacts are not available yet.",
         };
         let smoke_test = self.rust().smoke_test;
         self.as_mut().set_status(QString::from(status));

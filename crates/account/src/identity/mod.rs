@@ -107,7 +107,7 @@ impl PrivateStatus {
         match self {
             Self::Idle => "Own-device certificates have not been prepared.".into(),
             Self::Preparing => "Preparing temporary certificates for your own devices…".into(),
-            Self::Ready(summary) => format!("This device is registered. Received {} own-device certificates ({} active; {} malformed records rejected). Nearby connection verification is still required; this device remains hidden.", summary.own_device_certificates, summary.active_certificates, summary.rejected_certificates),
+            Self::Ready(summary) => format!("This device is registered. Received {} own-device certificates ({} active; {} malformed records rejected). Live private verification is required for each connection.", summary.own_device_certificates, summary.active_certificates, summary.rejected_certificates),
             Self::Failed(error) => error.to_string(),
             Self::SigningOut => "Signed out locally. Asking Google to clear this device's published certificates…".into(),
             Self::CleanupUnconfirmed => "Signed out locally. Clearing the temporary device credentials at Google was not confirmed; they may remain until expiry.".into(),

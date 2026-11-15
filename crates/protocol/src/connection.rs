@@ -21,6 +21,11 @@ pub enum Control {
         /// Requested medium code, if supplied.
         medium: Option<i32>,
     },
+    /// Exchange supported channels without following a new connection path.
+    UpgradeCapabilities {
+        /// Only requests need a response; responses must not create a loop.
+        request: bool,
+    },
     /// Peer asks to close; no further file completion may be inferred.
     Disconnect {
         /// Safe-disconnect request.
@@ -55,15 +60,14 @@ pub fn request(endpoint: &[u8; 4], info: &[u8], nonce: i32) -> Result<Vec<u8>, W
     };
     Ok(envelope(1, 0, body.encode_to_vec()))
 }
-/// Validate a plain request for the owned-peer test receiver; never trust its
-/// unverified name. Production currently implements outgoing connections only.
+/// Validate a bounded plain request; its name and metadata remain untrusted.
 pub fn request_info(bytes: &[u8]) -> Result<Vec<u8>, WireError> {
     let body = Request::decode(single(bytes, 1, 0)?.as_slice()).map_err(|_| WireError::Invalid)?;
     if body.endpoint.as_ref().is_none_or(|id| id.len() != 4) {
         return Err(WireError::Invalid);
     }
     let info = body.info.or(body.name).ok_or(WireError::Invalid)?;
-    if info.len() != 17 || !matches!(info[0], 0x10 | 0x16) {
+    if !(17..=131).contains(&info.len()) || info[0] >> 5 > 1 {
         return Err(WireError::Invalid);
     }
     Ok(info)
@@ -150,8 +154,35 @@ pub fn control(bytes: &[u8]) -> Result<Control, WireError> {
                 ack: d.ack.unwrap_or(false),
             })
         }
+        Some(12) => {
+            let r = UpgradeRetry::decode(single(bytes, 12, 11)?.as_slice())
+                .map_err(|_| WireError::Invalid)?;
+            if r.mediums.len() > 32 {
+                return Err(WireError::Size);
+            }
+            Ok(Control::UpgradeCapabilities {
+                request: r.request.unwrap_or(false),
+            })
+        }
         _ => Err(WireError::Unsupported),
     }
+}
+/// Safe protocol discriminator only; no payload or endpoint values are exposed.
+pub fn diagnostic_frame_type(bytes: &[u8]) -> Option<i32> {
+    decode(bytes).ok()?.v1?.kind
+}
+/// Advertise only the implemented Wi-Fi LAN medium in a request or response.
+/// This exchanges capabilities; it does not connect or accept an upgrade.
+pub fn upgrade_capabilities(request: bool) -> Vec<u8> {
+    envelope(
+        12,
+        11,
+        UpgradeRetry {
+            mediums: vec![5],
+            request: Some(request),
+        }
+        .encode_to_vec(),
+    )
 }
 /// Reply to a keep-alive without inventing an application payload.
 pub fn keep_alive(ack: bool, sequence: u32) -> Vec<u8> {
@@ -277,6 +308,7 @@ fn envelope(kind: i32, field: usize, bytes: Vec<u8>) -> Vec<u8> {
         3 => v.upgrade = Some(bytes),
         4 => v.keep = Some(bytes),
         5 => v.disconnect = Some(bytes),
+        11 => v.retry = Some(bytes),
         _ => unreachable!(),
     }
     Frame {
@@ -333,6 +365,13 @@ struct Disconnect {
     ack: Option<bool>,
 }
 #[derive(Clone, PartialEq, prost::Message)]
+struct UpgradeRetry {
+    #[prost(int32, repeated, packed = "false", tag = "1")]
+    mediums: Vec<i32>,
+    #[prost(bool, optional, tag = "2")]
+    request: Option<bool>,
+}
+#[derive(Clone, PartialEq, prost::Message)]
 struct Upgrade {
     #[prost(int32, optional, tag = "1")]
     event: Option<i32>,
@@ -349,6 +388,21 @@ struct Path {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn upgrade_retry_is_a_capability_query_and_never_a_new_network_path() {
+        assert_eq!(
+            upgrade_capabilities(false),
+            [8, 1, 18, 8, 8, 12, 106, 4, 8, 5, 16, 0]
+        );
+        assert_eq!(
+            control(&upgrade_capabilities(true)).unwrap(),
+            Control::UpgradeCapabilities { request: true }
+        );
+        assert_eq!(
+            control(&upgrade_capabilities(false)).unwrap(),
+            Control::UpgradeCapabilities { request: false }
+        );
+    }
     #[test]
     fn official_response_and_keepalive_field_layout() {
         let os = if cfg!(target_os = "windows") {
