@@ -1655,6 +1655,7 @@ dependencies = [
  "cxx-qt-build",
  "cxx-qt-lib",
  "nearlane-core",
+ "nearlane-platform",
  "nearlane-service",
 ]
 
@@ -1674,8 +1675,12 @@ dependencies = [
 name = "nearlane-platform"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "keyring",
+ "rand 0.8.8",
  "sha2",
+ "tokio",
+ "zbus",
  "zeroize",
 ]
 

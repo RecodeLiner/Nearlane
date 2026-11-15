@@ -19,6 +19,14 @@ pub mod ffi {
         #[namespace = "nearlane::desktop"]
         fn default_receive_directory() -> QString;
         #[namespace = "nearlane::desktop"]
+        fn receive_by_default() -> bool;
+        #[namespace = "nearlane::desktop"]
+        fn confirm_received_files() -> bool;
+        #[namespace = "nearlane::desktop"]
+        fn saved_receive_directory() -> QString;
+        #[namespace = "nearlane::desktop"]
+        fn save_receive_preferences(enabled: bool, confirm: bool, directory: &QString) -> bool;
+        #[namespace = "nearlane::desktop"]
         fn quit_application();
     }
     extern "RustQt" {
@@ -48,7 +56,11 @@ pub mod ffi {
         #[qproperty(QString, receive_status)]
         #[qproperty(QString, incoming_offer)]
         #[qproperty(bool, receiving_active)]
+        #[qproperty(bool, background_receiving)]
+        #[qproperty(bool, confirm_each_file)]
+        #[qproperty(QString, preferences_status)]
         #[qproperty(bool, receive_pending)]
+        #[qproperty(bool, actionable_notification)]
         #[qproperty(bool, continuous_discovery)]
         #[qproperty(u32, received_count)]
         type Backend = super::BackendRust;
@@ -92,6 +104,8 @@ pub mod ffi {
         #[qinvokable]
         fn set_background_discovery(self: Pin<&mut Backend>, enabled: bool);
         #[qinvokable]
+        fn configure_receiving(self: Pin<&mut Backend>, enabled: bool, confirm: bool);
+        #[qinvokable]
         fn shutdown(self: Pin<&mut Backend>);
     }
 }
@@ -127,10 +141,15 @@ pub struct BackendRust {
     receive_status: QString,
     incoming_offer: QString,
     receiving_active: bool,
+    background_receiving: bool,
+    confirm_each_file: bool,
+    preferences_status: QString,
     receive_pending: bool,
+    actionable_notification: bool,
     continuous_discovery: bool,
     received_count: u32,
     service: Service,
+    notifications: crate::notifications::OfferNotifications,
 }
 
 impl Default for BackendRust {
@@ -140,11 +159,19 @@ impl Default for BackendRust {
         if !smoke_test && service.account_configured() {
             let _ = service.restore_saved_sign_in();
         }
-        let folder = ffi::default_receive_directory().to_string();
+        let folder = if smoke_test {
+            ffi::default_receive_directory()
+        } else {
+            ffi::saved_receive_directory()
+        }
+        .to_string();
         if !folder.is_empty() {
             service.select_receive_directory(folder.into());
         }
         service.set_continuous_discovery(!smoke_test);
+        let background_receiving = !smoke_test && ffi::receive_by_default();
+        let confirm_each_file = smoke_test || ffi::confirm_received_files();
+        service.set_receiving_preferences(background_receiving, confirm_each_file);
         Self {
             status: QString::from(service.status().as_str()),
             smoke_test,
@@ -170,10 +197,15 @@ impl Default for BackendRust {
             receive_status: QString::from(service.receive_status()),
             incoming_offer: QString::default(),
             receiving_active: false,
+            background_receiving,
+            confirm_each_file,
+            preferences_status: QString::default(),
             receive_pending: false,
+            actionable_notification: false,
             continuous_discovery: !smoke_test,
             received_count: 0,
             service,
+            notifications: crate::notifications::OfferNotifications::default(),
         }
     }
 }
@@ -181,6 +213,12 @@ impl Default for BackendRust {
 impl ffi::Backend {
     fn update_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        {
+            let mut state = self.as_mut().rust_mut();
+            let enabled = !state.smoke_test;
+            let state = &mut *state;
+            state.notifications.update(&mut state.service, enabled);
+        }
         let account = self.rust().service.account_status();
         let configured = self.rust().service.account_configured();
         let busy = self.rust().service.account_busy();
@@ -207,8 +245,11 @@ impl ffi::Backend {
         let receive_directory = self.rust().service.receive_directory();
         let receive_status = self.rust().service.receive_status().to_owned();
         let receiving_active = self.rust().service.receiving_active();
+        let background_receiving = self.rust().service.background_receiving();
+        let confirm_each_file = self.rust().service.confirm_each_file();
         let offer = self.rust().service.incoming_offer();
         let receive_pending = offer.is_some();
+        let actionable_notification = self.rust().notifications.suppress_fallback();
         let continuous_discovery = self.rust().service.continuous_discovery();
         let received_count = self.rust().service.received_count();
         let incoming_offer = offer
@@ -287,6 +328,13 @@ impl ffi::Backend {
         self.as_mut()
             .set_incoming_offer(QString::from(incoming_offer.as_str()));
         self.as_mut().set_receiving_active(receiving_active);
+        self.as_mut().set_background_receiving(background_receiving);
+        self.as_mut().set_confirm_each_file(confirm_each_file);
+        if !receive_pending {
+            self.as_mut().set_receive_pending(false);
+        }
+        self.as_mut()
+            .set_actionable_notification(actionable_notification);
         self.as_mut().set_receive_pending(receive_pending);
         self.as_mut().set_continuous_discovery(continuous_discovery);
         self.as_mut().set_received_count(received_count);
@@ -419,6 +467,7 @@ impl ffi::Backend {
                 .rust_mut()
                 .service
                 .select_receive_directory(std::path::PathBuf::from(path.to_string()));
+            self.as_mut().save_preferences();
         }
         self.update_account();
     }
@@ -426,12 +475,14 @@ impl ffi::Backend {
     pub fn start_receiving(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         self.as_mut().rust_mut().service.start_receiving();
+        self.as_mut().save_preferences();
         self.update_account();
     }
     /// Withdraw receiver visibility and cancel established incoming IO.
     pub fn stop_receiving(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         self.as_mut().rust_mut().service.stop_receiving();
+        self.as_mut().save_preferences();
         self.update_account();
     }
     /// Explicit local consent, after live private device verification.
@@ -449,9 +500,38 @@ impl ffi::Backend {
             .set_continuous_discovery(enabled);
         self.update_account();
     }
+    /// Persist only local UI preferences, never credentials or identity state.
+    pub fn configure_receiving(mut self: Pin<&mut Self>, enabled: bool, confirm: bool) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut()
+            .rust_mut()
+            .service
+            .set_receiving_preferences(enabled, confirm);
+        self.as_mut().save_preferences();
+        self.update_account();
+    }
+    fn save_preferences(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        if self.rust().smoke_test {
+            return;
+        }
+        let service = &self.rust().service;
+        let saved = ffi::save_receive_preferences(
+            service.background_receiving(),
+            service.confirm_each_file(),
+            &QString::from(service.receive_directory().as_str()),
+        );
+        self.as_mut()
+            .set_preferences_status(QString::from(if saved {
+                ""
+            } else {
+                "Could not save settings. These changes apply only until the app closes."
+            }));
+    }
     /// Stop sharing workers on Quit without deleting the saved account grant.
     pub fn shutdown(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().notifications.clear();
         self.as_mut().rust_mut().service.cancel_discovery();
         self.as_mut().rust_mut().service.stop_receiving();
         self.as_mut().rust_mut().service.cancel_transfer();
@@ -479,6 +559,24 @@ impl ffi::Backend {
 
     fn smoke_account_check(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        if let Ok(phase) = std::env::var("NEARLANE_PREFERENCES_SMOKE_TEST") {
+            if phase == "write" {
+                assert!(ffi::receive_by_default());
+                assert!(!ffi::confirm_received_files());
+                assert!(ffi::save_receive_preferences(
+                    false,
+                    true,
+                    &QString::from("synthetic-preference-folder")
+                ));
+            }
+            assert!(!ffi::receive_by_default());
+            assert!(ffi::confirm_received_files());
+            assert_eq!(
+                ffi::saved_receive_directory().to_string(),
+                "synthetic-preference-folder"
+            );
+            eprintln!("smoke: receiving preferences persisted; synthetic settings only");
+        }
         // Only called by the opt-in smoke path. Bind a real local listener but
         // never launch a browser or send a request to Google from this test.
         assert!(self.rust().service.account_configured());

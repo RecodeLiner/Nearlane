@@ -11,5 +11,11 @@ keyring.workspace = true
 sha2.workspace = true
 zeroize.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+rand.workspace = true
+
 [lints]
 workspace = true

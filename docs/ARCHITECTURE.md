@@ -62,13 +62,20 @@ legacy EOF cleanup is bounded and missing receipts remain explicit in the sender
 The legacy local harness uses real paired-key frame shapes and synthetic certificate
 signatures instead of process-local auth-token exchange. The desktop explicitly browses
 Wi-Fi LAN advertisements and shows only names from certificate-authenticated metadata. A
-separate receiving worker publishes private endpoint information only after Start
-receiving. It requires a verified own peer and local consent, then reuses the staging
-sink and duplex session. The service owns its lifetime, prevents concurrent
-outgoing/certificate rotation, and resets receiving on sign-out or session loss.
-Effective visibility is OwnDevices only while the receiver is advertised; Contacts
-remains unavailable. The computer is hidden by default. Discovery does not enable
-reception.
+separate receiving worker publishes private endpoint information after authorized
+private setup when desktop receiving is enabled (the desktop default). It requires a
+verified own peer and a service policy decision, then reuses the staging sink and duplex
+session. The service owns its lifetime, prevents concurrent outgoing/certificate
+rotation, and resets receiving on sign-out or session loss. Effective visibility is
+OwnDevices only while the receiver is advertised; Contacts remains unavailable. The bare
+service/CLI is hidden by default. Desktop settings default to own-device reception and
+automatic acceptance; optional per-file consent remains available. Discovery alone never
+establishes permission to receive. Qt QSettings holds only local preferences,
+independently of account trust and OS-vault credentials. An outgoing operation snapshots
+its recipient, cancels an idle receiver and waits asynchronously for its signing handle,
+then reception resumes after sending. Native Linux notifications live in the platform
+crate; the desktop controller maps their scoped actions through the service's current
+verified-offer gate.
 
 Sign-out is owned by the service: reset visibility/trust, then cancel the browser
 attempt and drop the account session. Future discovery/connections/certificate

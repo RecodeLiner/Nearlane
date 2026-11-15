@@ -9,6 +9,9 @@ pub(crate) struct Receiving {
     pub(crate) count: u32,
     pub(crate) enabled: bool,
     pub(crate) restart: std::time::Instant,
+    pub(crate) generation: u64,
+    pub(crate) failed: bool,
+    pub(crate) decision_sent: bool,
 }
 
 impl Default for Receiving {
@@ -21,6 +24,9 @@ impl Default for Receiving {
             count: 0,
             enabled: false,
             restart: std::time::Instant::now(),
+            generation: 0,
+            failed: false,
+            decision_sent: false,
         }
     }
 }
@@ -37,9 +43,11 @@ impl Receiving {
         // trust. In particular, restoring login must not erase the default.
         let directory = self.directory.take();
         let count = self.count;
+        let generation = self.generation;
         *self = Self {
             directory,
             count,
+            generation,
             ..Self::default()
         };
     }
@@ -49,17 +57,26 @@ impl Receiving {
         self.message = "Receiving stopped. The computer is hidden.".into();
     }
     pub(crate) fn offer(&self) -> Option<IncomingOffer> {
+        if self.decision_sent {
+            return None;
+        }
         self.job.as_ref().and_then(ReceiveJob::offer).filter(|_| {
             self.job
                 .as_ref()
                 .is_some_and(|j| j.phase() == nearlane_transfer::ReceivePhase::AwaitingConsent)
         })
     }
-    pub(crate) fn poll(&mut self) {
+    pub(crate) fn poll(&mut self, confirm_each_file: bool) {
         let Some(job) = &self.job else {
             return;
         };
         self.message = job.phase().message();
+        // ReceiveJob exposes this gate only after matched own-device metadata,
+        // mutual live proofs and a validated single-file introduction.
+        if !confirm_each_file && !self.decision_sent && job.decide(true) {
+            self.decision_sent = true;
+            self.message = "Accepting a file from your verified own device…".into();
+        }
         if let Some(result) = job.poll() {
             self.saved = result.is_ok();
             if self.saved {
@@ -74,6 +91,7 @@ impl Receiving {
                     | nearlane_transfer::ReceiveFailure::Worker)
             ) {
                 self.enabled = false;
+                self.failed = true;
             }
             self.restart = std::time::Instant::now() + std::time::Duration::from_secs(1);
             self.message = match result {
@@ -81,6 +99,9 @@ impl Receiving {
                     "File saved: {} bytes. Preparing to receive another file.",
                     file.summary.bytes
                 ),
+                Err(nearlane_transfer::ReceiveFailure::TimedOut) if self.enabled => {
+                    "Refreshing private reception. Receiving stays enabled.".into()
+                }
                 Err(error) => error.to_string(),
             };
             self.job = None;
@@ -106,8 +127,10 @@ mod tests {
         );
         assert!(receiving.job.is_none());
         receiving.enabled = true;
+        receiving.generation = 7;
         receiving.reset();
         assert!(!receiving.enabled);
+        assert_eq!(receiving.generation, 7);
         assert_eq!(
             receiving.directory,
             Some(PathBuf::from("synthetic-destination"))

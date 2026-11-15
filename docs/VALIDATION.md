@@ -16,7 +16,7 @@ The checks and earlier failure/correction sequence are recorded below.
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 91 tests pass on Linux,
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 95 tests pass on Linux,
   including local OAuth callbacks, sign-out, encrypted file streaming,
   tampering/replay, size/offset/path checks and non-overwrite behavior, plus
   public Google certificate crypto vectors, own-device-only publication,
@@ -34,6 +34,13 @@ Verified:
   interleaved before and after local consent.
   Background-specific checks cover unauthenticated watch gating, stop/reset
   behavior and destination retention across account-state changes.
+  Notification checks cover bounded/redacted metadata, markup escaping and scoped
+  action IDs. Receiving policy checks cover saved intent across sign-out,
+  unauthenticated gating and switching back to explicit confirmation.
+- The opt-in session-bus notification test passed for Accept, Decline and
+  cancellation using its own mock service. It ignores wrong IDs/stale keys,
+  handles an action arriving before the Notify reply and closes only its own ID.
+  It does not replace the real desktop notification service or access accounts.
 - The opt-in `system_store_roundtrip` test passed against the actual Linux
   Secret Service: created, read and deleted a unique synthetic entry; no account
   tokens or other vault entries were read. It is ignored in normal/Nix test runs.
@@ -45,6 +52,9 @@ Verified:
 - `tools/smoke_desktop.py ... --kde --native --tray`: both session and KDE styles
   passed default-folder retention, tray availability, close-to-hide/show and a
   notification request with synthetic local authorization only.
+  Isolated preference files verify enabled/autoaccept defaults, disabled/confirm
+  settings and destination persistence across two desktop processes. They never
+  modify personal desktop settings, including on Windows/macOS.
 - 22 upstream UKEY2 unit tests pass with the adapted public RustCrypto package.
 - `cargo run --locked -p nearlane-cli -- test-transfer`: 3,145,851 bytes transfer
   over owned loopback peers; the reread saved-file SHA-256 matches the source.
@@ -85,35 +95,37 @@ Android hardware. Saving/opening a 94-byte private transfer to Android was confi
 followed by successful saving of the same file from Android to the PC. Bluetooth
 background discovery and large files remain unverified. Follow-up
 tray/continuous-discovery changes compile and pass the checks above. Windows/macOS tray
-behavior and sequential Android files under automatic receiver restart remain
-unverified. Simulated peer tests alone do not prove Android interoperability. Wi-Fi LAN
-discovery and metadata decryption found the authorized Android phone. On 2026-11-15 an
-authorized trial used a harmless 94-byte test file on that phone. `send-own` restored
-the existing Google grant without a browser, completed certificate setup and found
-exactly the requested certificate-matched phone. Its first connection failed during the
-encryption prelude, before an introduction or file content. A second search found no
-matching advertisement. Later diagnostics showed accepted Android feature version 4,
-which lacks the optional version-6 file ACK; that is no longer a connection rejection. A
-subsequent test passed mutual private proofs and successful peer results, receiver
-acceptance and a 94-byte upload. The phone displayed receiving and eventually Can't
-transfer files, so that attempt did not establish saved delivery. Chunk indices and
-exact EOF encoding were corrected. The following real attempt passed mutual private
-proof/receiver acceptance again, and the test file was confirmed received and opening
-successfully. The peer closed without a file ACK; this stays unconfirmed in the sender's
-wire-level status rather than fabricating a receipt. Diagnostics retain only safe
-protocol checkpoints, never tokens, handshake bytes or traffic captures. No saved token
-values were inspected and no new account was authorized for this check. The local file
-engine is implemented, but the self-test starts directly at UKEY2 and is not a complete
-Nearby connection or Android/private-mode session. The application displayed “Quick
-Share permission granted” after browser login on 2026-11-15. Successful registration and
-query were subsequently confirmed: 9 own-device certificates, 6 active, 0 malformed.
-That establishes authenticated API exchange in the authorized account session; live
-Android verification is recorded separately above. Earlier public-endpoint probes used
-no account or cookies: OAuth reached Google's login page, and a separate empty HTTP/2
-gRPC request received UNAUTHENTICATED status 16 from Nearby Identity. The app now
-implements temporary own-device publication and queries. Explicit device search starts a
-bounded LAN search; it never publishes a receiver or enables file sharing on that basis
-alone. See [the login experiment](research/oauth-runtime.md) and [the certificate/API
+behavior and automatic acceptance on a real phone remain unverified. Native notification
+buttons were confirmed working and a subsequent incoming transfer was instant; an
+earlier transient Sending delay was not reproduced or attributed to a cause. Simulated
+peer tests alone do not prove Android interoperability. Wi-Fi LAN discovery and metadata
+decryption found the authorized Android phone. On 2026-11-15 an authorized trial used a
+harmless 94-byte test file on that phone. `send-own` restored the existing Google grant
+without a browser, completed certificate setup and found exactly the requested
+certificate-matched phone. Its first connection failed during the encryption prelude,
+before an introduction or file content. A second search found no matching advertisement.
+Later diagnostics showed accepted Android feature version 4, which lacks the optional
+version-6 file ACK; that is no longer a connection rejection. A subsequent test passed
+mutual private proofs and successful peer results, receiver acceptance and a 94-byte
+upload. The phone displayed receiving and eventually Can't transfer files, so that
+attempt did not establish saved delivery. Chunk indices and exact EOF encoding were
+corrected. The following real attempt passed mutual private proof/receiver acceptance
+again, and the test file was confirmed received and opening successfully. The peer
+closed without a file ACK; this stays unconfirmed in the sender's wire-level status
+rather than fabricating a receipt. Diagnostics retain only safe protocol checkpoints,
+never tokens, handshake bytes or traffic captures. No saved token values were inspected
+and no new account was authorized for this check. The local file engine is implemented,
+but the self-test starts directly at UKEY2 and is not a complete Nearby connection or
+Android/private-mode session. The application displayed “Quick Share permission granted”
+after browser login on 2026-11-15. Successful registration and query were subsequently
+confirmed: 9 own-device certificates, 6 active, 0 malformed. That establishes
+authenticated API exchange in the authorized account session; live Android verification
+is recorded separately above. Earlier public-endpoint probes used no account or cookies:
+OAuth reached Google's login page, and a separate empty HTTP/2 gRPC request received
+UNAUTHENTICATED status 16 from Nearby Identity. The app now implements temporary
+own-device publication and queries. Explicit device search starts a bounded LAN search;
+it never publishes a receiver or enables file sharing on that basis alone. See [the
+login experiment](research/oauth-runtime.md) and [the certificate/API
 evidence](research/identity-certificates.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package

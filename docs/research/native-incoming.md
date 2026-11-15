@@ -22,23 +22,24 @@ own-device certificate. Both role-bound signatures, certificate-secret knowledge
 and a successful peer result are required before reading the file introduction.
 There is no UNABLE or public-peer fallback.
 
-A destination folder is selected before reception is enabled. Only
-after mutual verification are the sender's authenticated name, safe filename
-and size exposed to plain-text QML. Each offer requires Accept file or Decline;
-consent expires after sixty seconds. Keep-alives are serviced while waiting,
-and file content sent before consent is rejected without creating a temporary
-file. One regular file up to 64 MiB is supported; other attachment families and
-folders are rejected. Staging uses the existing private temporary-file sink,
-with exact ID/type/length/offset/EOF checks, sync and non-overwriting publication.
-A receipt is sent only after persistence and only when negotiated. Closing or
-a lost receipt cannot undo an already saved file.
+The destination defaults to Downloads/Nearlane and can be changed in settings. Only
+after mutual verification are the sender's authenticated name, safe filename and size
+exposed to plain-text QML. Verified own-device offers are approved automatically by
+default. Optional per-file confirmation uses Accept or Decline and expires after sixty
+seconds. Keep-alives are serviced while waiting, and file content sent before consent is
+rejected without creating a temporary file. One regular file up to 64 MiB is supported;
+other attachment families and folders are rejected. Staging uses the existing private
+temporary-file sink, with exact ID/type/length/offset/EOF checks, sync and
+non-overwriting publication. A receipt is sent only after persistence and only when
+negotiated. Closing or a lost receipt cannot undo an already saved file.
 
 Stop receiving, sign-out, session loss and application exit cancel the listener,
 withdraw its publication as the worker finishes and interrupt established IO.
 Incomplete staging is removed; completed files remain. Cancellation cannot bound
 slow filesystem operations. Outgoing sends and certificate regeneration are
-blocked while a receiver owns its private signing handle. Reception is off by
-default and stops after one file. There is no automatic acceptance.
+coordinated while the receiver owns its private signing handle. Each worker
+handles one file; the desktop restarts reception while receiving stays enabled.
+Reception and automatic acceptance of verified own-device offers are on by default.
 
 Tests cover verified consent, multi-chunk save/reread/digest, decline, unmatched
 credentials, pre-consent file content and an existing destination. The opt-in
@@ -78,11 +79,14 @@ remain separate work. No Bluetooth capability is advertised by this stage.
 
 ## Background behavior
 
-The desktop defaults to QStandardPaths::DownloadLocation/Nearlane, creates it
-on explicit receiving enablement, and keeps accepting one locally approved file
-per worker until stopped. A restart delay releases the prior certificate handle
-and socket; a storage/listener/identity failure disables automatic restart.
-Stop/sign-out/quit clear the restart intent. No automatic file acceptance is added.
+The desktop defaults to QStandardPaths::DownloadLocation/Nearlane and creates it
+when receiving starts. Receiving is enabled after login/private setup by default,
+and verified own devices are automatically approved. Persistent settings can
+disable reception or require confirmation for each file; the selected destination
+is also saved. A restart delay releases the prior certificate handle and socket;
+a storage/listener/identity failure disables retries until an explicit retry or
+app restart. Sign-out/session loss/quit cancel workers without erasing preferences.
+Unconfigured service/CLI construction stays offline and requires explicit consent.
 
 A bounded continuous DNS-SD watch replaces snapshots instead of queuing events;
 it refreshes matching endpoints, handles removal and expires stale observations.
@@ -90,14 +94,35 @@ The desktop enables it after login. CLI/service construction remains offline,
 and its own local certificates are filtered from outgoing discovery.
 
 Qt's platform tray has show/hide, receiving/discovery switches, Quit and generic
-incoming/saved notifications. It uses QApplication/QtWidgets for native fallback
+saved-file notifications. It uses QApplication/QtWidgets for native fallback
 and a project-owned icon. Closing hides only when a tray is available. Quit stops
 workers and preserves the saved account grant. No login autostart is installed.
-The new code compiled, passed the 91 root tests and strict Rust clippy checks.
+The new code compiled, passed the 95 root tests and strict Rust clippy checks.
 Native KDE checks verified default-folder retention, tray availability, window
 close-to-hide/show, and notification invocation in session and KDE styles. A
 continuous-watch native test found its own synthetic advertisement, then removed
 it on withdrawal. These opt-in checks do not access the saved Google grant.
-Sequential real Android files under automatic listener restart and Windows/macOS
-tray behavior remain unverified. The default folder is an app preference and
-survives login restoration/sign-out; pending offers and restart intent do not.
+Automatic acceptance on real Android and Windows/macOS tray behavior remain
+unverified. Pending offers never survive login restoration/sign-out.
+
+Google's [Windows documentation](https://support.google.com/android/answer/13801258?hl=en)
+states that Your devices visibility is for the same Google account, same-account
+transfers are accepted automatically, and the app receives while running in the
+background. Closing its window keeps it running; Quit exits. This establishes the
+behavior being implemented, not a claim about the original installation's default
+visibility or complete radio compatibility. Nearlane still has no BLE transport
+or OS-login autostart installation.
+
+## Native notification actions
+
+When confirmation is enabled, Linux uses the [freedesktop notification
+protocol](https://specifications.freedesktop.org/notification/latest/protocol.html). It
+checks the server's actions capability, subscribes before Notify, and uses random scoped
+Accept/Decline keys plus the returned notification ID. The desktop routes a decision
+through the service's monotonic current-offer generation. It closes its own notification
+on completion/cancel/expiry and falls back to the window on an unavailable server. Only
+verified sender/file metadata is displayed, with escaped markup and bounded input.
+Nothing includes account tokens or paths. An owned mock session-bus service tested
+immediate actions, wrong/stale IDs and cancellation without replacing the real
+notification server. The buttons were confirmed working with Android. A transient
+Sending delay did not recur; no speculative transport change was made for it.

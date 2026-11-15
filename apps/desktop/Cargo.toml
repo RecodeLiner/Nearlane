@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 nearlane-core.workspace = true
 nearlane-service.workspace = true
+nearlane-platform.workspace = true
 cxx.workspace = true
 cxx-qt.workspace = true
 cxx-qt-lib.workspace = true

@@ -1,6 +1,7 @@
 //! Nearlane's Qt Quick desktop shell.
 
 mod backend;
+mod notifications;
 
 use cxx_qt::casting::Upcast as _;
 use cxx_qt_lib::{QQmlApplicationEngine, QQmlEngine, QUrl};

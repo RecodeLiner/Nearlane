@@ -69,9 +69,7 @@ impl ReceivePhase {
     pub fn message(self) -> String {
         match self {
             Self::Starting => "Starting private Wi-Fi reception…".into(),
-            Self::Listening => {
-                "Ready to receive from your own devices for up to ten minutes.".into()
-            }
+            Self::Listening => "Ready to receive from your own devices.".into(),
             Self::Negotiating => "Establishing the incoming encrypted Nearby connection…".into(),
             Self::Verifying => "Verifying the incoming device's private keys…".into(),
             Self::AwaitingConsent => {

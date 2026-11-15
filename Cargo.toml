@@ -23,6 +23,8 @@ nearlane-certificates = { path = "crates/certificates" }
 nearlane-discovery = { path = "crates/discovery" }
 mdns-sd = "0.21"
 if-addrs = "0.15"
+zbus = { version = "4.4", default-features = false, features = ["tokio"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "async-secret-service", "tokio", "crypto-rust"] }
 libc = "0.2"
 aes = "0.8"

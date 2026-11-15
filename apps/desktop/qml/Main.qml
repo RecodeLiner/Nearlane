@@ -15,6 +15,7 @@ ApplicationWindow {
     title: "Nearlane"
     property bool quitting: false
     property bool incomingPending: backend.receive_pending
+    property bool actionableNotification: backend.actionable_notification
     property int savedFiles: backend.received_count
     function showWindow() { window.showNormal(); window.raise(); window.requestActivate() }
     function quitApp() { quitting = true; backend.shutdown(); Qt.quit() }
@@ -27,13 +28,15 @@ ApplicationWindow {
             Qt.quit()
         }
     }
-    onIncomingPendingChanged: {
-        if (incomingPending && !backend.smoke_test) {
+    function fallbackIncomingNotification() {
+        if (incomingPending && !actionableNotification && !backend.smoke_test) {
             if (tray.available && tray.supportsMessages)
                 tray.showMessage(qsTr("Incoming file"), qsTr("A verified own device wants to send a file. Open Nearlane to accept or decline."), Platform.SystemTrayIcon.Information, 10000)
             else showWindow()
         }
     }
+    onIncomingPendingChanged: fallbackIncomingNotification()
+    onActionableNotificationChanged: { if (!actionableNotification) fallbackIncomingNotification() }
     onSavedFilesChanged: {
         if (savedFiles > 0 && !backend.smoke_test && tray.available && tray.supportsMessages)
             tray.showMessage(qsTr("File received"), qsTr("The file was saved in your selected folder."), Platform.SystemTrayIcon.Information, 6000)
@@ -54,9 +57,8 @@ ApplicationWindow {
             Platform.MenuItem {
                 text: qsTr("Receive from own devices")
                 checkable: true
-                checked: backend.receiving_active
-                enabled: backend.discovery_available && !backend.transfer_busy
-                onTriggered: { if (backend.receiving_active) backend.stop_receiving(); else backend.start_receiving() }
+                checked: backend.background_receiving
+                onTriggered: backend.configure_receiving(!backend.background_receiving, backend.confirm_each_file)
             }
             Platform.MenuItem {
                 text: qsTr("Find devices continuously")
@@ -169,7 +171,7 @@ ApplicationWindow {
                 Label { text: qsTr("Your own devices"); font.bold: true }
                 Label { text: backend.private_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 Label {
-                    text: qsTr("After sign-in, Nearlane registers this computer with Google and exchanges temporary certificates for your own devices. It stays hidden while nearby connection support is being completed.")
+                    text: qsTr("After sign-in, Nearlane registers this computer and exchanges temporary certificates for your own devices. When receiving is enabled, only verified devices on your account can send files to this computer.")
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
@@ -220,7 +222,7 @@ ApplicationWindow {
                         Label { text: parent.modelData; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         Button {
                             text: qsTr("Send file")
-                            enabled: backend.account_authorized && !backend.transfer_busy && !backend.receiving_active && !backend.account_busy && backend.selected_send_name.length > 0
+                            enabled: backend.account_authorized && !backend.transfer_busy && !backend.receive_pending && !backend.account_busy && backend.selected_send_name.length > 0
                             onClicked: backend.send_selected_file(parent.index)
                         }
                     }
@@ -272,6 +274,21 @@ ApplicationWindow {
                 anchors.fill: parent
                 spacing: 12
                 Label { text: qsTr("Receive on this computer"); font.bold: true }
+                Switch {
+                    text: qsTr("Always receive from my devices")
+                    checked: backend.background_receiving
+                    onClicked: backend.configure_receiving(checked, backend.confirm_each_file)
+                }
+                CheckBox {
+                    text: qsTr("Ask before receiving each file")
+                    checked: backend.confirm_each_file
+                    onClicked: backend.configure_receiving(backend.background_receiving, checked)
+                }
+                Label {
+                    text: qsTr("Settings are saved. By default, Nearlane receives automatically from verified devices on your Google account whenever the app is running, including in the tray. Sign-out and Quit stop receiving.")
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
+                }
+                Label { visible: text.length > 0; text: backend.preferences_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 RowLayout {
                     Layout.fillWidth: true
                     Button { text: qsTr("Choose folder…"); enabled: !backend.receiving_active; onClicked: receiveFolder.open() }
@@ -293,7 +310,7 @@ ApplicationWindow {
                     Button { text: qsTr("Decline"); onClicked: backend.decide_incoming(false) }
                 }
                 Label {
-                    text: qsTr("Only verified devices from your account may offer a file. You approve each file before it is received. One file up to 64 MiB; existing files are never replaced. Receiving stays on until Stop receiving or Quit.")
+                    text: qsTr("Only verified devices from your account may send a file. Enable confirmation above to accept or decline each offer, including from a Linux notification. One file up to 64 MiB; existing files are never replaced. Stop receiving hides this computer and saves that choice for the next launch.")
                     Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
                 }
             }

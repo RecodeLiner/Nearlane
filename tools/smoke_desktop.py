@@ -24,11 +24,11 @@ def main():
         config = Path(directory) / "synthetic-client.json"
         config.touch(mode=0o600)
         config.write_text(json.dumps({"client_id": "synthetic-smoke-client"}))
-        return check(binary, args, config)
+        return check(binary, args, config, Path(directory) / "settings")
 
 
-def check(binary, args, config):
-    for style in [None, "org.kde.desktop"] if args.kde else [None]:
+def check(binary, args, config, settings):
+    for index, style in enumerate([None, "org.kde.desktop"] if args.kde else [None]):
         env = os.environ.copy()
         env.update(
             NEARLANE_SMOKE_TEST="1",
@@ -36,6 +36,8 @@ def check(binary, args, config):
             QT_FORCE_STDERR_LOGGING="1",
             QT_LOGGING_RULES="*.warning=true",
             QT_QUICK_BACKEND="software",
+            NEARLANE_PREFERENCES_SMOKE_DIR=str(settings),
+            NEARLANE_PREFERENCES_SMOKE_TEST="write" if index == 0 else "read",
         )
         if not args.native:
             env["QT_QPA_PLATFORM"] = "offscreen"
@@ -60,6 +62,7 @@ def check(binary, args, config):
             or "smoke: policy checked; device remains hidden" not in output
             or "smoke: local sign-in cancelled; device remains hidden" not in output
             or "smoke: signed out; device remains hidden" not in output
+            or "smoke: receiving preferences persisted; synthetic settings only" not in output
             or (args.tray and "smoke: tray close/show and notification checked" not in output)
             or any(error in output for error in errors)
         ):
@@ -67,6 +70,7 @@ def check(binary, args, config):
             print(output, file=sys.stderr)
             return 1
         print(f"PASS ({style or 'session style'}): QML loaded, local login cancelled, device hidden")
+        print("PASS: private receiving defaults and saved settings (isolated from personal preferences)")
         if args.tray:
             print("PASS: native tray available, close hides, show restores, notification requested")
     return 0

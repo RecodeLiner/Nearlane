@@ -27,6 +27,9 @@ pub struct Service {
     receiving: receiving::Receiving,
     continuous_discovery: bool,
     discovery_retry: std::time::Instant,
+    receive_on_ready: bool,
+    confirm_each_file: bool,
+    pending_send: Option<(nearlane_discovery::OwnDevice, std::time::Instant)>,
 }
 
 impl Default for Service {
@@ -44,6 +47,9 @@ impl Default for Service {
             receiving: receiving::Receiving::default(),
             continuous_discovery: false,
             discovery_retry: std::time::Instant::now(),
+            receive_on_ready: false,
+            confirm_each_file: true,
+            pending_send: None,
         }
     }
 }
@@ -67,6 +73,7 @@ impl Service {
             return;
         }
         self.account = Account::from_local_config(path);
+        self.pending_send = None;
         self.transfers.reset();
         self.receiving.reset();
         self.discovery.reset();
@@ -82,8 +89,11 @@ impl Service {
 
     /// Cancel the current attempt and discard any late token response.
     pub fn cancel_sign_in(&mut self, reason: LoginError) {
+        self.pending_send = None;
         self.transfers.reset();
-        self.stop_receiving();
+        self.receiving.reset();
+        self.visibility = Visibility::Hidden;
+        self.capabilities = Capabilities::default();
         self.discovery.reset();
         self.account.cancel(reason);
     }
@@ -95,8 +105,9 @@ impl Service {
 
     /// Reset sharing state before discarding account credentials. Published
     /// Quick Share resets discovery/connections and trust data at sign-out;
-    /// these adapters do not yet exist in this prototype. No public fallback.
+    /// remembered local preferences never keep workers or trust alive.
     pub fn sign_out(&mut self) {
+        self.pending_send = None;
         self.transfers.reset();
         self.receiving.reset();
         self.discovery.reset();
@@ -112,8 +123,9 @@ impl Service {
         if self.account.status() == AccountStatus::Authorized {
             self.discovery.poll();
             self.transfers.poll();
-            self.receiving.poll();
+            self.receiving.poll(self.confirm_each_file);
         } else {
+            self.pending_send = None;
             self.transfers.reset();
             self.discovery.reset();
             self.receiving.reset();
@@ -152,11 +164,23 @@ impl Service {
                 Err(error) => self.discovery.status = DiscoveryStatus::Failed(error),
             }
         }
-        if self.receiving.enabled
+        if let Some((peer, deadline)) = self.pending_send.clone() {
+            if std::time::Instant::now() >= deadline {
+                self.pending_send = None;
+                self.transfers.message =
+                    "The private receiver did not stop in time. Retry sending.".into();
+            } else {
+                self.launch_sender(peer);
+            }
+        }
+        if (self.receive_on_ready || self.receiving.enabled)
+            && !self.receiving.failed
             && self.receiving.job.is_none()
             && std::time::Instant::now() >= self.receiving.restart
             && self.account.status() == AccountStatus::Authorized
             && !self.account.busy()
+            && matches!(self.account.private_status(), PrivateStatus::Ready(_))
+            && !self.transfer_busy()
         {
             self.launch_receiver();
         }
@@ -247,28 +271,54 @@ impl Service {
         if self.transfer_busy() || self.account.busy() {
             return;
         }
-        if self.receiving_active() {
-            self.transfers.message = "Stop receiving before starting an outgoing transfer.".into();
-            return;
-        }
-        self.transfers.completed = false;
-        let Some(path) = self.transfers.source.clone() else {
-            self.transfers.message = "Choose a file first.".into();
-            return;
-        };
         let Some(peer) = self.discovery.devices.get(index).cloned() else {
             self.transfers.message = "Find and select an own device first.".into();
             return;
         };
+        if self.transfers.source.is_none() {
+            self.transfers.message = "Choose a file first.".into();
+            return;
+        }
+        if self.receiving.job.as_ref().is_some_and(|j| {
+            !matches!(
+                j.phase(),
+                nearlane_transfer::ReceivePhase::Starting
+                    | nearlane_transfer::ReceivePhase::Listening
+            )
+        }) {
+            self.transfers.message = "Finish the incoming transfer before sending a file.".into();
+            return;
+        }
+        // Cancel the idle listener without changing the saved receiving intent.
+        // Its worker releases the signing handle asynchronously; poll retries
+        // within a fixed deadline rather than blocking the GUI thread.
+        self.receiving.stop();
+        self.pending_send = Some((
+            peer.clone(),
+            std::time::Instant::now() + std::time::Duration::from_secs(5),
+        ));
+        self.transfers.message = "Preparing to send from the background receiver…".into();
+        self.launch_sender(peer);
+    }
+    fn launch_sender(&mut self, peer: nearlane_discovery::OwnDevice) {
+        self.transfers.completed = false;
+        let Some(path) = self.transfers.source.clone() else {
+            self.pending_send = None;
+            self.transfers.message = "Choose a file first.".into();
+            return;
+        };
         let identity = match self.account.transfer_identity() {
             Ok(identity) => identity,
+            Err(IdentityError::Busy) => return,
             Err(_) => {
+                self.pending_send = None;
                 self.transfers.message =
                     "Current private device keys are unavailable or busy. Retry device setup."
                         .into();
                 return;
             }
         };
+        self.pending_send = None;
         match nearlane_transfer::SendJob::start(peer, identity, path) {
             Ok(job) => {
                 self.transfers.message = job.progress().message();
@@ -279,11 +329,12 @@ impl Service {
     }
     /// Stop IO and discard late transfer results without changing visibility.
     pub fn cancel_transfer(&mut self) {
+        self.pending_send = None;
         self.transfers.cancel();
     }
     /// Whether one outgoing worker is owned by this service.
     pub fn transfer_busy(&self) -> bool {
-        self.transfers.job.is_some()
+        self.transfers.job.is_some() || self.pending_send.is_some()
     }
     /// Whether the most recent attempt received the matching file ACK.
     pub fn transfer_completed(&self) -> bool {
@@ -303,8 +354,28 @@ impl Service {
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default()
     }
-    /// Explicitly publish a private receiver for one approved file.
+    /// Set desktop receiving policy. Construction and unauthenticated sessions
+    /// stay offline; automatic approval still requires live own-device proofs.
+    pub fn set_receiving_preferences(&mut self, enabled: bool, confirm_each_file: bool) {
+        self.receive_on_ready = enabled;
+        self.confirm_each_file = confirm_each_file;
+        self.receiving.failed = false;
+        if !enabled {
+            self.stop_receiving();
+        }
+    }
+    /// Whether private receiving should resume after login or an outgoing file.
+    pub fn background_receiving(&self) -> bool {
+        self.receive_on_ready
+    }
+    /// Whether verified own devices need an explicit decision for each file.
+    pub fn confirm_each_file(&self) -> bool {
+        self.confirm_each_file
+    }
+    /// Enable private reception now and after the next successful setup.
     pub fn start_receiving(&mut self) {
+        self.receive_on_ready = true;
+        self.receiving.failed = false;
         if self.receiving_active() || self.transfer_busy() || self.account.busy() {
             return;
         }
@@ -312,10 +383,17 @@ impl Service {
         self.launch_receiver();
     }
     fn launch_receiver(&mut self) {
+        let Some(generation) = self.receiving.generation.checked_add(1) else {
+            self.receiving.enabled = false;
+            self.receiving.failed = true;
+            self.receiving.message = "Restart the application before receiving again.".into();
+            return;
+        };
         self.receiving.saved = false;
         let Some(directory) = self.receiving.directory.clone() else {
             self.receiving.message = "Choose a destination folder first.".into();
             self.receiving.enabled = false;
+            self.receiving.failed = true;
             return;
         };
         let identity = match self.account.transfer_identity() {
@@ -327,6 +405,7 @@ impl Service {
             }
             Err(_) => {
                 self.receiving.enabled = false;
+                self.receiving.failed = true;
                 self.receiving.message = "Prepare current own-device keys before receiving.".into();
                 return;
             }
@@ -338,17 +417,22 @@ impl Service {
             nearlane_transfer::RECEIVE_PORT,
         ) {
             Ok(job) => {
+                self.receiving.enabled = true;
+                self.receiving.decision_sent = false;
+                self.receiving.generation = generation;
                 self.receiving.message = job.phase().message();
                 self.receiving.job = Some(job);
             }
             Err(error) => {
                 self.receiving.enabled = false;
+                self.receiving.failed = true;
                 self.receiving.message = error.to_string();
             }
         }
     }
     /// Withdraw the advertisement, interrupt established IO and discard offers.
     pub fn stop_receiving(&mut self) {
+        self.receive_on_ready = false;
         self.receiving.stop();
         self.visibility = Visibility::Hidden;
         self.capabilities = Capabilities::default();
@@ -367,9 +451,27 @@ impl Service {
     }
     /// First local consent decision applies only to the current verified offer.
     pub fn decide_incoming(&mut self, accept: bool) {
-        if let Some(job) = &self.receiving.job {
-            let _ = job.decide(accept);
+        if let Some(id) = self.incoming_request_id() {
+            let _ = self.decide_incoming_for(id, accept);
         }
+    }
+    /// Monotonic current-offer identity for native notifications. It is not a
+    /// peer or account identifier and survives account reset to prevent reuse.
+    pub fn incoming_request_id(&self) -> Option<u64> {
+        self.receiving.offer().map(|_| self.receiving.generation)
+    }
+    /// Apply a notification action only to the still-current verified offer.
+    pub fn decide_incoming_for(&mut self, id: u64, accept: bool) -> bool {
+        let applied = self.incoming_request_id() == Some(id)
+            && self
+                .receiving
+                .job
+                .as_ref()
+                .is_some_and(|j| j.decide(accept));
+        if applied {
+            self.receiving.decision_sent = true;
+        }
+        applied
     }
     /// Whether the latest receiving session durably saved a complete file.
     pub fn received_file_saved(&self) -> bool {
@@ -480,6 +582,32 @@ impl Service {
 mod tests {
     use super::*;
     #[test]
+    fn background_receive_policy_survives_logout_but_never_opens_without_identity() {
+        let mut service = Service::default();
+        assert!(!service.background_receiving());
+        assert!(service.confirm_each_file());
+        service.select_receive_directory("synthetic-not-opened".into());
+        service.set_receiving_preferences(true, false);
+        for _ in 0..3 {
+            service.poll_account();
+        }
+        assert!(service.background_receiving());
+        assert!(!service.confirm_each_file());
+        assert!(!service.receiving_active());
+        assert!(service.receiving.job.is_none());
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        service.sign_out();
+        service.poll_account();
+        assert!(service.background_receiving());
+        assert!(!service.confirm_each_file());
+        assert!(!service.decide_incoming_for(0, true));
+        service.set_receiving_preferences(false, true);
+        service.poll_account();
+        assert!(!service.background_receiving());
+        assert!(service.confirm_each_file());
+        assert!(!service.receiving_active());
+    }
+    #[test]
     fn continuous_discovery_waits_for_login_and_can_be_stopped_without_a_network() {
         let mut service = Service::default();
         service.set_continuous_discovery(true);
@@ -498,6 +626,8 @@ mod tests {
         service.start_receiving();
         assert!(!service.receiving_active());
         assert!(service.incoming_offer().is_none());
+        assert!(!service.decide_incoming_for(0, true));
+        assert!(!service.decide_incoming_for(u64::MAX, false));
         assert_eq!(service.visibility(), Visibility::Hidden);
         service.sign_out();
         assert_eq!(service.receive_directory(), "synthetic-not-opened");

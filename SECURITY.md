@@ -86,9 +86,9 @@ The file engine uses pinned public Google UKEY2/D2D sources with RustCrypto.
 Framing bounds apply before allocation; a failed integrity/sequence check makes
 the channel unusable. The explicit outgoing operation connects only to a recently
 certificate-matched own-device candidate and requires mutual role-bound paired-key
-verification. It does not authenticate arbitrary Google contacts. The explicit
-Start receiving action now advertises an own-device-only receiver; it is off by
-default and never publishes a plaintext device name.
+verification. It does not authenticate arbitrary Google contacts. The desktop
+advertises an own-device-only receiver after authorized private setup by default;
+reception can be disabled in settings. No plaintext device name is published.
 
 Explicit device search browses only the NearbySharing DNS-SD service
 for 20 seconds, with limits of 1024 events and 32 candidate endpoints. It does not
@@ -117,14 +117,20 @@ and frame shapes, not Google-backed peer identity or a full Android connection.
 The incoming worker accepts private/link-local IPv4 peers only and requires
 matched active own-device metadata plus full mutual private proofs. Only then
 may the introduction and a local consent prompt be displayed. No file content
-is accepted before consent, and one file up to 64 MiB is supported. The listener
+is accepted before the policy decision, and one file up to 64 MiB is supported.
+The desktop defaults to automatic approval of verified own-device offers;
+optional per-file confirmation uses the same decision gate. The listener
 uses a ten-minute waiting window, sixteen attempt bound, fifteen-second absolute
 preflight budget and sixty-second consent window. Each session has its own
 socket/cancellation/decision state; late decisions cannot authorize a new session.
 File completion uses the existing staging/sync/non-overwrite sink. Stop/sign-out
 and session loss shut down established IO and withdraw the advertisement as the
 worker finishes. Completed files remain; incomplete staging is removed. The
-outgoing operation and certificate regeneration are blocked while receiving.
+outgoing operation temporarily cancels an idle listener, waits up to five seconds
+for its signing handle to be released, then resumes configured reception after
+sending. The selected peer is captured before waiting, so discovery list changes
+cannot change the recipient. Active incoming sessions block outgoing transfers;
+certificate regeneration remains blocked while receiving.
 An opt-in diagnostic switch records only phase enums and safe failure categories.
 Successful Android-to-PC saving was confirmed after the interleaved Android
 control messages were implemented. See docs/research/native-incoming.md.
@@ -132,10 +138,22 @@ control messages were implemented. See docs/research/native-incoming.md.
 The follow-up desktop background mode continuously browses only the same private
 service and trusted cache, with 32-peer snapshots and 1024-event/minute bounds.
 It never queues unbounded updates or probes arbitrary peers. Local advertisements
-are excluded from outgoing results. Reception remains explicitly enabled and
-each file needs local consent; worker restart after completion/expiry does not
-authorize the next file. Stop/sign-out/quit clear that intent. Notifications are
-generic and never include filenames, device identifiers, keys or content.
+are excluded from outgoing results. Desktop reception is enabled by default
+after successful login/private setup, and offers from verified own devices are
+automatically approved by default. Both settings and the local destination are
+saved with Qt QSettings; no credentials or trust data are saved there. CLI/service
+construction stays offline with explicit consent. Sign-out/session loss/quit stop
+workers; saved preferences alone cannot establish trust or revive a session.
+Stop receiving persists disabled visibility. Storage/listener/identity failures
+stop retries until an explicit retry or app restart.
+
+When confirmation is enabled, Linux native notification actions are scoped to
+the returned server ID, a random per-notification action key and a monotonic
+service-offer generation. Expiry, cancellation and stale actions cannot approve
+a later file. The sender/file name and byte count are shown only after private
+verification; markup is escaped. Completed-file notifications are generic. No
+notification includes paths, account grants, keys or file content. Servers without
+action support fall back to the application consent UI.
 The desktop's default destination uses the OS Downloads location plus Nearlane,
 created only when reception is enabled; remote data cannot choose that folder.
 Native KDE checks verified tray availability, close/show behavior, the default
