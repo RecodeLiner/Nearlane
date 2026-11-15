@@ -35,6 +35,7 @@ pub mod ffi {
         #[qproperty(QString, status)]
         #[qproperty(bool, smoke_test)]
         #[qproperty(bool, tray_test)]
+        #[qproperty(QString, design_preview)]
         #[qproperty(QString, account_status)]
         #[qproperty(bool, account_configured)]
         #[qproperty(bool, account_busy)]
@@ -120,6 +121,7 @@ pub struct BackendRust {
     status: QString,
     smoke_test: bool,
     tray_test: bool,
+    design_preview: QString,
     account_status: QString,
     account_configured: bool,
     account_busy: bool,
@@ -176,6 +178,14 @@ impl Default for BackendRust {
             status: QString::from(service.status().as_str()),
             smoke_test,
             tray_test: smoke_test && std::env::var_os("NEARLANE_TRAY_SMOKE_TEST").is_some(),
+            design_preview: QString::from(
+                if smoke_test {
+                    std::env::var("NEARLANE_DESIGN_PREVIEW").unwrap_or_default()
+                } else {
+                    String::new()
+                }
+                .as_str(),
+            ),
             account_status: QString::from(service.account_status().message().as_str()),
             account_configured: service.account_configured(),
             account_busy: false,

@@ -7,6 +7,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QSettings>
+#include <QQuickStyle>
 #include <memory>
 
 namespace nearlane::desktop {
@@ -22,6 +23,7 @@ inline std::unique_ptr<QGuiApplication> create_application() {
     app->setOrganizationName("Nearlane");
     app->setOrganizationDomain("nearlane.org");
     app->setQuitOnLastWindowClosed(false);
+    QQuickStyle::setStyle("Material");
     return app;
 }
 inline QString default_receive_directory() {

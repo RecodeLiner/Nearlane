@@ -13,6 +13,27 @@ Rust 1.85 is the declared minimum; it has not been tested locally.
 Large-file Android delivery and screen-off Wi-Fi bootstrap are not verified.
 The checks and earlier failure/correction sequence are recorded below.
 
+Material desktop redesign:
+
+- Stable Qt Quick Controls Material; no new Cargo/Qt library or experimental API.
+- Real Qt screenshots inspected at 1040×760, 1040×900, 540×760 and 540×900.
+  Sixteen synthetic cases cover both themes, selected/unselected file/device,
+  200% text, a long device name, incoming consent, empty/loading/signed-out/error
+  states and scrolled content. These are UI fixtures, not fake backend transfers.
+- Rail and bottom-navigation control activation, resize continuity, retained
+  device selection, Tab-reason focus and focus-chain availability passed.
+  Full hardware keyboard/screen-reader and other operating systems are untested.
+- Nominal foreground/background token pairs have at least 6.16:1 text contrast
+  in light and 7.33:1 in dark. Disabled controls are not included in that claim.
+- Native session/KDE environment smoke runs passed QML loading, private-mode
+  gating, saved preferences, tray availability and close/show behavior. Qt style
+  is now intentionally Material; the KDE environment still supplies native dialogs.
+- `tools/preview_desktop.py` requires smoke mode with synthetic client config;
+  the preview path never restores the saved account grant. No report filename or
+  test-device list is supplied in normal startup. Captures remain ignored in work/.
+- Dynamic wallpaper colors, high-contrast themes and full Material 3 Expressive
+  component parity are not implemented. See DESIGN.md for the UI contract.
+
 Verified:
 
 - `cargo fmt --all -- --check`

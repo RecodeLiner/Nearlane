@@ -1,372 +1,428 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import Qt.labs.platform as Platform
 import org.nearlane.app
+import "components" as UI
+import "pages" as Pages
 
 ApplicationWindow {
     id: window
-    width: 760
-    height: 600
-    minimumWidth: 560
-    minimumHeight: 520
+    width: 1040
+    height: 760
+    minimumWidth: 540
+    minimumHeight: 540
     visible: true
     title: "Nearlane"
+    color: theme.surface
+    property int destination: 0
+    readonly property bool wide: width >= 760
     property bool quitting: false
-    property bool incomingPending: backend.receive_pending
-    property bool actionableNotification: backend.actionable_notification
-    property int savedFiles: backend.received_count
-    function showWindow() { window.showNormal(); window.raise(); window.requestActivate() }
-    function quitApp() { quitting = true; backend.shutdown(); Qt.quit() }
-    onClosing: function(event) {
-        if (!quitting && (!backend.smoke_test || backend.tray_test) && tray.available) {
-            event.accepted = false
-            window.hide()
+    property int themeOverride: -1
+    property real textScale: 1
+    readonly property var preview: backendModel.design_preview.length > 0 ? JSON.parse(backendModel.design_preview) : null
+    property bool incomingPending: backendModel.receive_pending
+    property bool actionableNotification: backendModel.actionable_notification
+    property int savedFiles: backendModel.received_count
+    readonly property var destinations: [
+        {
+            label: qsTr("Отправить"),
+            title: qsTr("Отправить файл"),
+            icon: "send"
+        },
+        {
+            label: qsTr("Получить"),
+            title: qsTr("Получить файлы"),
+            icon: "receive"
+        },
+        {
+            label: qsTr("Настройки"),
+            title: qsTr("Настройки"),
+            icon: "settings"
+        }
+    ]
+    Material.theme: themeOverride === 0 ? Material.Light : themeOverride === 1 ? Material.Dark : Material.System
+    Material.primary: theme.primary
+    Material.accent: theme.primary
+
+    UI.Theme {
+        id: theme
+        dark: window.Material.theme === Material.Dark
+        basePointSize: Math.max(12, window.font.pointSize) * window.textScale
+        controlMaxWidth: Math.max(160, window.width - (window.wide ? 120 : 0) - 96)
+    }
+    Backend {
+        id: backendModel
+    }
+
+    function showWindow() {
+        window.showNormal();
+        window.raise();
+        window.requestActivate();
+    }
+    function showAccountSettings() {
+        destination = 2;
+        Qt.callLater(settingsPage.showAccount);
+    }
+    function showReceivingSettings() {
+        destination = 2;
+        Qt.callLater(settingsPage.showGeneral);
+    }
+    function quitApp() {
+        quitting = true;
+        backendModel.shutdown();
+        Qt.quit();
+    }
+    onClosing: function (event) {
+        if (!quitting && (!backendModel.smoke_test || backendModel.tray_test) && tray.available) {
+            event.accepted = false;
+            window.hide();
         } else {
-            backend.shutdown()
-            Qt.quit()
+            backendModel.shutdown();
+            Qt.quit();
         }
     }
     function fallbackIncomingNotification() {
-        if (incomingPending && !actionableNotification && !backend.smoke_test) {
+        if (incomingPending && !actionableNotification && !backendModel.smoke_test) {
             if (tray.available && tray.supportsMessages)
-                tray.showMessage(qsTr("Incoming file"), qsTr("A verified own device wants to send a file. Open Nearlane to accept or decline."), Platform.SystemTrayIcon.Information, 10000)
-            else showWindow()
+                tray.showMessage(qsTr("Входящий файл"), qsTr("Ваше устройство предлагает файл. Откройте Nearlane, чтобы принять или отклонить его."), Platform.SystemTrayIcon.Information, 10000);
+            else {
+                destination = 1;
+                showWindow();
+            }
         }
     }
     onIncomingPendingChanged: fallbackIncomingNotification()
-    onActionableNotificationChanged: { if (!actionableNotification) fallbackIncomingNotification() }
-    onSavedFilesChanged: {
-        if (savedFiles > 0 && !backend.smoke_test && tray.available && tray.supportsMessages)
-            tray.showMessage(qsTr("File received"), qsTr("The file was saved in your selected folder."), Platform.SystemTrayIcon.Information, 6000)
+    onActionableNotificationChanged: {
+        if (!actionableNotification)
+            fallbackIncomingNotification();
     }
-
+    onSavedFilesChanged: {
+        if (savedFiles > 0 && !backendModel.smoke_test && tray.available && tray.supportsMessages)
+            tray.showMessage(qsTr("Файл получен"), qsTr("Файл сохранён в выбранную папку."), Platform.SystemTrayIcon.Information, 6000);
+    }
     Platform.SystemTrayIcon {
         id: tray
-        visible: !backend.smoke_test || backend.tray_test
+        visible: !backendModel.smoke_test || backendModel.tray_test
         icon.source: "qrc:/nearlane/icon.svg"
-        tooltip: backend.receiving_active ? qsTr("Nearlane · Receiving from your devices") : qsTr("Nearlane · Running in background")
-        onActivated: function(reason) {
+        tooltip: backendModel.receiving_active ? qsTr("Nearlane · Приём от своих устройств") : qsTr("Nearlane · Работает в фоне")
+        onActivated: function (reason) {
             if (reason === Platform.SystemTrayIcon.Trigger || reason === Platform.SystemTrayIcon.DoubleClick)
-                window.showWindow()
+                window.showWindow();
         }
-        onMessageClicked: window.showWindow()
+        onMessageClicked: {
+            window.destination = 1;
+            window.showWindow();
+        }
         menu: Platform.Menu {
-            Platform.MenuItem { text: qsTr("Open Nearlane"); onTriggered: window.showWindow() }
             Platform.MenuItem {
-                text: qsTr("Receive from own devices")
-                checkable: true
-                checked: backend.background_receiving
-                onTriggered: backend.configure_receiving(!backend.background_receiving, backend.confirm_each_file)
+                text: qsTr("Открыть Nearlane")
+                onTriggered: window.showWindow()
             }
             Platform.MenuItem {
-                text: qsTr("Find devices continuously")
+                text: qsTr("Принимать от своих устройств")
                 checkable: true
-                checked: backend.continuous_discovery
-                onTriggered: backend.set_background_discovery(!backend.continuous_discovery)
+                checked: backendModel.background_receiving
+                onTriggered: backendModel.configure_receiving(!backendModel.background_receiving, backendModel.confirm_each_file)
+            }
+            Platform.MenuItem {
+                text: qsTr("Искать устройства в фоне")
+                checkable: true
+                checked: backendModel.continuous_discovery
+                onTriggered: backendModel.set_background_discovery(!backendModel.continuous_discovery)
             }
             Platform.MenuSeparator {}
-            Platform.MenuItem { text: qsTr("Quit"); onTriggered: window.quitApp() }
+            Platform.MenuItem {
+                text: qsTr("Выйти из приложения")
+                onTriggered: window.quitApp()
+            }
         }
     }
-
-    Backend { id: backend }
-
-    header: ToolBar {
+    Rectangle {
+        id: appContent
+        anchors.fill: parent
+        color: theme.surface
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 20
-            anchors.rightMargin: 20
-            Label { text: "Nearlane"; font.pixelSize: 22; font.bold: true; Layout.fillWidth: true }
-            Label { text: backend.receiving_active ? qsTr("Own devices · Receiving") : qsTr("Hidden"); color: palette.mid }
-        }
-    }
-
-    ScrollView {
-        id: page
-        anchors.fill: parent
-        anchors.margins: 28
-        contentWidth: availableWidth
-        clip: true
-
-    ColumnLayout {
-        width: page.availableWidth
-        spacing: 18
-        Label { text: qsTr("Your devices, nearby"); font.pixelSize: 28; font.bold: true }
-        Label {
-            text: qsTr("A private way to share with Quick Share devices.")
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-        }
-        Frame {
-            Layout.fillWidth: true
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-                Label {
-                    text: backend.account_authorized ? qsTr("Quick Share permission granted") : qsTr("Connect your Google account")
-                    font.bold: true
-                }
-                Label {
-                    text: backend.account_status
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    Button {
-                        text: qsTr("Sign in with Google")
-                        enabled: backend.account_configured && !backend.account_busy && !backend.account_authorized && !backend.login_remembered
-                        onClicked: backend.sign_in()
+            spacing: 0
+            Rectangle {
+                visible: window.wide
+                Layout.preferredWidth: 120
+                Layout.fillHeight: true
+                color: theme.surfaceLow
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 12
+                    Image {
+                        source: "qrc:/nearlane/icon.svg"
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 36
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: 20
+                        Layout.bottomMargin: 24
+                        Accessible.ignored: true
                     }
-                    Button {
-                        text: qsTr("Cancel")
-                        visible: backend.login_cancellable
-                        onClicked: backend.cancel_sign_in()
+                    Repeater {
+                        id: railDestinations
+                        model: window.destinations
+                        UI.NavButton {
+                            required property var modelData
+                            required property int index
+                            tokens: theme
+                            text: modelData.label
+                            symbolName: modelData.icon
+                            selected: window.destination === index
+                            Layout.fillWidth: true
+                            Accessible.description: "Alt+" + (index + 1)
+                            onClicked: window.destination = index
+                        }
                     }
-                    Button {
-                        text: qsTr("Sign out")
-                        visible: backend.account_authorized || backend.login_remembered
-                        onClicked: backend.sign_out()
+                    Item {
+                        Layout.fillHeight: true
                     }
-                    BusyIndicator {
-                        visible: backend.account_busy
-                        running: visible
-                        implicitWidth: 28
-                        implicitHeight: 28
+                    UI.BodyText {
+                        tokens: theme
+                        text: "Nearlane"
+                        role: "label"
+                        secondary: true
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.bottomMargin: 16
                     }
-                }
-                Label { text: backend.saved_login_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                Button {
-                    text: qsTr("Retry saved sign-in")
-                    visible: backend.login_remembered && !backend.account_authorized
-                    enabled: !backend.account_busy
-                    onClicked: backend.restore_saved_sign_in()
-                }
-                Button {
-                    text: qsTr("Select local sign-in configuration…")
-                    visible: !backend.account_configured
-                    onClicked: configDialog.open()
-                }
-                Label {
-                    text: qsTr("Sign-in opens your browser once, then remembers offline access in the system credential store. Access tokens and device keys stay in memory. Use a test account for this experimental build.")
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
-                }
-                Label {
-                    text: qsTr("This compatibility experiment uses the locally imported Google desktop configuration. Google's consent screen may name Quick Share. Nearlane is an independent app.")
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
                 }
             }
-        }
-        Frame {
-            Layout.fillWidth: true
             ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-                Label { text: qsTr("Your own devices"); font.bold: true }
-                Label { text: backend.private_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                Label {
-                    text: qsTr("After sign-in, Nearlane registers this computer and exchanges temporary certificates for your own devices. When receiving is enabled, only verified devices on your account can send files to this computer.")
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 0
+                Item {
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
-                }
-                Button {
-                    text: qsTr("Retry device setup")
-                    enabled: backend.account_authorized && !backend.account_busy && !backend.transfer_busy
-                    onClicked: backend.prepare_own_devices()
-                }
-            }
-        }
-        Frame {
-            Layout.fillWidth: true
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-                Label { text: qsTr("Nearby devices"); font.bold: true }
-                Label { text: backend.discovery_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                CheckBox {
-                    text: qsTr("Find my devices continuously")
-                    checked: backend.continuous_discovery
-                    onClicked: backend.set_background_discovery(checked)
-                }
-                RowLayout {
-                    Button {
-                        text: qsTr("Find my devices")
-                        enabled: backend.discovery_available && !backend.account_busy && !backend.discovery_busy && !backend.transfer_busy
-                        onClicked: backend.find_own_devices()
-                    }
-                    Button {
-                        text: qsTr("Stop search")
-                        visible: backend.discovery_busy
-                        onClicked: backend.cancel_discovery()
-                    }
-                    BusyIndicator { visible: backend.discovery_busy; running: visible; implicitWidth: 28; implicitHeight: 28 }
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    Button { text: qsTr("Choose file…"); enabled: backend.account_authorized && !backend.transfer_busy; onClicked: sendDialog.open() }
-                    Label { text: backend.selected_send_name; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                }
-                Repeater {
-                    model: backend.own_devices
-                    RowLayout {
-                        required property string modelData
-                        required property int index
-                        Layout.fillWidth: true
-                        Label { text: parent.modelData; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                        Button {
-                            text: qsTr("Send file")
-                            enabled: backend.account_authorized && !backend.transfer_busy && !backend.receive_pending && !backend.account_busy && backend.selected_send_name.length > 0
-                            onClicked: backend.send_selected_file(parent.index)
+                    implicitHeight: heading.implicitHeight + 48
+                    ColumnLayout {
+                        id: heading
+                        anchors.fill: parent
+                        anchors.margins: 24
+                        spacing: 8
+                        GridLayout {
+                            columns: window.width < 660 && theme.basePointSize > 16 ? 1 : 2
+                            Layout.fillWidth: true
+                            UI.BodyText {
+                                tokens: theme
+                                text: window.destinations[window.destination].title
+                                role: "headline"
+                                Layout.fillWidth: true
+                            }
+                            UI.ActionButton {
+                                tokens: theme
+                                text: qsTr("Аккаунт")
+                                symbolName: "lock"
+                                Layout.alignment: Qt.AlignRight
+                                onClicked: window.showAccountSettings()
+                            }
+                        }
+                        UI.BodyText {
+                            tokens: theme
+                            role: "label"
+                            secondary: true
+                            text: backendModel.receiving_active ? qsTr("Приём от своих устройств включён") : backendModel.account_busy ? qsTr("Восстанавливаем вход…") : !backendModel.account_authorized ? qsTr("Подключите аккаунт в настройках") : qsTr("Приём на этом компьютере выключен")
+                            Layout.fillWidth: true
                         }
                     }
                 }
-                Label { text: backend.transfer_status; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                Button { text: qsTr("Cancel transfer"); visible: backend.transfer_busy; onClicked: backend.cancel_transfer() }
-                Label {
-                    text: qsTr("Experimental: one file up to 64 MiB. Sending starts only after both devices verify their private keys and the phone accepts the offer.")
+                StackLayout {
+                    id: pages
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
+                    Layout.fillHeight: true
+                    currentIndex: window.destination
+                    Pages.SendPage {
+                        id: sendPage
+                        tokens: theme
+                        backend: backendModel
+                        onChooseFile: sendDialog.open()
+                        onOpenSettings: window.showAccountSettings()
+                    }
+                    Pages.ReceivePage {
+                        id: receivePage
+                        tokens: theme
+                        backend: backendModel
+                        onOpenSettings: window.showReceivingSettings()
+                        onOpenAccount: window.showAccountSettings()
+                    }
+                    Pages.SettingsPage {
+                        id: settingsPage
+                        tokens: theme
+                        backend: backendModel
+                        onChooseFolder: receiveFolder.open()
+                        onChooseConfig: configDialog.open()
+                    }
                 }
-                Label {
-                    text: qsTr("Use the same local network and Google account on both devices, with private Quick Share visibility. This build uses Wi-Fi LAN only; Bluetooth/BLE background discovery is not ready. The phone's Receive screen is not required and can temporarily make it visible to everyone.")
+                Rectangle {
+                    visible: !window.wide
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
-                }
-            }
-        }
-        Label { text: backend.status; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: palette.mid }
-        Frame {
-            Layout.fillWidth: true
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-                CheckBox { id: showCertificates; text: qsTr("Show received certificates") }
-                Label {
-                    visible: showCertificates.checked
-                    text: qsTr("This computer normally has three certificates for consecutive validity periods. Removing that set would stop private sharing. Google withholds the name-decryption key from downloads, so other names appear after nearby discovery. Older registrations can remain until expiry; Sign out requests cleanup of the current registration.")
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
-                Repeater {
-                    model: showCertificates.checked ? backend.certificate_rows : []
-                    Label {
-                        required property string modelData
-                        text: modelData
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
+                    implicitHeight: compactNav.implicitHeight + 16
+                    color: theme.surfaceLow
+                    RowLayout {
+                        id: compactNav
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 4
+                        Repeater {
+                            id: barDestinations
+                            model: window.destinations
+                            UI.NavButton {
+                                required property var modelData
+                                required property int index
+                                tokens: theme
+                                text: modelData.label
+                                symbolName: modelData.icon
+                                selected: window.destination === index
+                                Layout.fillWidth: true
+                                onClicked: window.destination = index
+                            }
+                        }
                     }
                 }
             }
         }
-        Frame {
-            Layout.fillWidth: true
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-                Label { text: qsTr("Receive on this computer"); font.bold: true }
-                Switch {
-                    text: qsTr("Always receive from my devices")
-                    checked: backend.background_receiving
-                    onClicked: backend.configure_receiving(checked, backend.confirm_each_file)
-                }
-                CheckBox {
-                    text: qsTr("Ask before receiving each file")
-                    checked: backend.confirm_each_file
-                    onClicked: backend.configure_receiving(backend.background_receiving, checked)
-                }
-                Label {
-                    text: qsTr("Settings are saved. By default, Nearlane receives automatically from verified devices on your Google account whenever the app is running, including in the tray. Sign-out and Quit stop receiving.")
-                    Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
-                }
-                Label { visible: text.length > 0; text: backend.preferences_status; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                RowLayout {
-                    Layout.fillWidth: true
-                    Button { text: qsTr("Choose folder…"); enabled: !backend.receiving_active; onClicked: receiveFolder.open() }
-                    Label { text: backend.receive_directory; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                }
-                RowLayout {
-                    Button {
-                        text: qsTr("Start receiving")
-                        enabled: backend.discovery_available && !backend.account_busy && !backend.receiving_active && !backend.transfer_busy && backend.receive_directory.length > 0
-                        onClicked: backend.start_receiving()
-                    }
-                    Button { text: qsTr("Stop receiving"); visible: backend.receiving_active; onClicked: backend.stop_receiving() }
-                }
-                Label { text: backend.receive_status; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                Label { visible: backend.receive_pending; text: backend.incoming_offer; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                RowLayout {
-                    visible: backend.receive_pending
-                    Button { text: qsTr("Accept file"); onClicked: backend.decide_incoming(true) }
-                    Button { text: qsTr("Decline"); onClicked: backend.decide_incoming(false) }
-                }
-                Label {
-                    text: qsTr("Only verified devices from your account may send a file. Enable confirmation above to accept or decline each offer, including from a Linux notification. One file up to 64 MiB; existing files are never replaced. Stop receiving hides this computer and saves that choice for the next launch.")
-                    Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
-                }
-            }
-        }
-        Label {
-            text: qsTr("Contacts mode is still being implemented. This computer is discoverable by your own devices only while receiving is enabled.")
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-        }
-        Label { text: qsTr("Independent project. Not affiliated with Google or Samsung."); font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     }
+    Shortcut {
+        sequence: "Alt+1"
+        onActivated: window.destination = 0
     }
-
+    Shortcut {
+        sequence: "Alt+2"
+        onActivated: window.destination = 1
+    }
+    Shortcut {
+        sequence: "Alt+3"
+        onActivated: window.destination = 2
+    }
+    Shortcut {
+        sequences: [StandardKey.Open]
+        enabled: backendModel.account_authorized && !backendModel.transfer_busy
+        onActivated: {
+            window.destination = 0;
+            sendDialog.open();
+        }
+    }
     FileDialog {
         id: configDialog
-        title: qsTr("Select local sign-in configuration")
-        nameFilters: [qsTr("JSON files (*.json)")]
-        onAccepted: backend.load_config(selectedFile)
+        title: qsTr("Конфигурация входа")
+        nameFilters: [qsTr("Файлы JSON (*.json)")]
+        onAccepted: backendModel.load_config(selectedFile)
     }
     FileDialog {
         id: sendDialog
-        title: qsTr("Choose a file to send")
+        title: qsTr("Выберите файл")
         fileMode: FileDialog.OpenFile
-        onAccepted: backend.select_send_file(selectedFile)
+        onAccepted: {
+            sendPage.attemptedTransfer = false;
+            backendModel.select_send_file(selectedFile);
+        }
     }
     FolderDialog {
         id: receiveFolder
-        title: qsTr("Choose where to save received files")
-        onAccepted: backend.select_receive_directory(selectedFolder)
+        title: qsTr("Куда сохранять полученные файлы")
+        onAccepted: backendModel.select_receive_directory(selectedFolder)
     }
-
     Timer {
         interval: 100
-        running: true
+        running: !window.preview
         repeat: true
-        onTriggered: backend.poll_account()
+        onTriggered: backendModel.poll_account()
     }
 
+    // Explicit smoke-only fixtures: no real login, discovery, files or decisions.
+    Component.onCompleted: {
+        if (!preview)
+            return;
+        width = preview.width;
+        height = preview.height;
+        themeOverride = preview.dark ? 1 : 0;
+        textScale = preview.scale || 1;
+        destination = preview.page || 0;
+        backendModel.account_authorized = preview.scene !== "signed-out";
+        backendModel.receiving_active = backendModel.account_authorized;
+        backendModel.background_receiving = true;
+        backendModel.discovery_available = backendModel.account_authorized;
+        backendModel.selected_send_name = preview.fileName || "";
+        backendModel.receive_directory = "/home/demo/Downloads/Nearlane";
+        backendModel.own_devices = preview.devices || [];
+        sendPage.selectedDevice = backendModel.own_devices.length > 0 ? 0 : -1;
+        backendModel.discovery_busy = preview.scene === "loading";
+        backendModel.account_status = preview.scene === "signed-out" ? qsTr("Войдите, чтобы подключить свои устройства.") : preview.scene === "error" ? "Could not restore sign-in. Retry saved sign-in." : "Quick Share permission granted.";
+        backendModel.preferences_status = preview.scene === "error" ? qsTr("Не удалось сохранить настройки. Проверьте доступ к папке конфигурации.") : "";
+        backendModel.incoming_offer = preview.offer || "";
+        backendModel.receive_pending = preview.scene === "incoming";
+        backendModel.receive_status = preview.scene === "error" ? "Could not open the receiving port. Close another Quick Share receiver and retry." : "Ready to receive from your own devices.";
+        backendModel.confirm_each_file = preview.scene === "incoming";
+        backendModel.continuous_discovery = true;
+    }
+    Timer {
+        interval: 650
+        running: !!window.preview
+        onTriggered: {
+            if (preview.exerciseNavigation) {
+                const selected = sendPage.selectedDevice;
+                const initialWidth = width;
+                railDestinations.itemAt(2).clicked();
+                if (destination !== 2)
+                    throw new Error("Rail navigation failed");
+                width = 540;
+                Qt.callLater(function () {
+                    if (window.wide || destination !== 2)
+                        throw new Error("Compact navigation lost destination");
+                    barDestinations.itemAt(0).clicked();
+                    if (destination !== 0 || sendPage.selectedDevice !== selected)
+                        throw new Error("Selection was lost on resize");
+                    width = initialWidth;
+                    Qt.callLater(function () {
+                        if (!window.wide || !sendPage.focusFilePicker())
+                            throw new Error("Keyboard focus or expanded layout failed");
+                        console.log("preview: navigation, resize continuity and Tab focus checked");
+                        window.capturePreview();
+                    });
+                });
+            } else
+                window.capturePreview();
+        }
+    }
+    function capturePreview() {
+        if (preview.scrollBottom) {
+            const view = [sendPage, receivePage, settingsPage][destination];
+            view.contentItem.contentY = Math.max(0, view.contentItem.contentHeight - view.availableHeight);
+        }
+        if (!appContent.grabToImage(function (result) {
+            if (!result.saveToFile(window.preview.output))
+                throw new Error("Could not save preview");
+            console.log("preview: saved synthetic UI");
+            Qt.quit();
+        }))
+            throw new Error("Could not capture preview");
+    }
     Timer {
         interval: 800
-        running: backend.smoke_test
+        running: backendModel.smoke_test && !window.preview
         onTriggered: {
-            backend.check_contacts()
-            if (backend.tray_test) {
-                if (!tray.available) throw new Error("System tray is not available")
-                if (!backend.receive_directory.endsWith("/Nearlane") && !backend.receive_directory.endsWith("\\Nearlane"))
-                    throw new Error("Default receiving folder is missing")
-                window.close()
-                if (window.visible) throw new Error("Closing did not hide to tray")
-                window.showWindow()
-                if (!window.visible) throw new Error("Window did not restore from tray")
+            backendModel.check_contacts();
+            if (backendModel.tray_test) {
+                if (!tray.available)
+                    throw new Error("System tray is not available");
+                if (!backendModel.receive_directory.endsWith("/Nearlane") && !backendModel.receive_directory.endsWith("\\Nearlane"))
+                    throw new Error("Default receiving folder is missing");
+                window.close();
+                if (window.visible)
+                    throw new Error("Closing did not hide to tray");
+                window.showWindow();
+                if (!window.visible)
+                    throw new Error("Window did not restore from tray");
                 if (tray.supportsMessages)
-                    tray.showMessage("Nearlane", "Background notification check", Platform.SystemTrayIcon.Information, 2500)
-                console.log("smoke: tray close/show and notification checked")
+                    tray.showMessage("Nearlane", "Background notification check", Platform.SystemTrayIcon.Information, 2500);
+                console.log("smoke: tray close/show and notification checked");
             }
-            Qt.quit()
+            Qt.quit();
         }
     }
 }
