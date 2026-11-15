@@ -29,6 +29,8 @@ pub struct PayloadChunk {
     pub total_size: u64,
     /// Sequential byte offset of this chunk.
     pub offset: u64,
+    /// Sequential chunk index, including the separate terminal chunk.
+    pub index: u32,
     /// Bounded chunk body, not the full file.
     pub body: Vec<u8>,
     /// Whether this is the terminal chunk.
@@ -98,7 +100,8 @@ pub fn encode_data(chunk: &PayloadChunk) -> Result<Vec<u8>, WireError> {
         chunk: Some(Chunk {
             flags: Some(i32::from(chunk.last)),
             offset: Some(chunk.offset as i64),
-            body: Some(chunk.body.clone()),
+            body: (!chunk.body.is_empty()).then(|| chunk.body.clone()),
+            index: Some(chunk.index as i32),
         }),
         control: None,
     })
@@ -173,6 +176,7 @@ pub fn decode_payload(bytes: &[u8]) -> Result<PayloadEvent, WireError> {
                     .map_err(|_| WireError::Invalid)?,
                 offset: u64::try_from(chunk.offset.ok_or(WireError::Invalid)?)
                     .map_err(|_| WireError::Invalid)?,
+                index: u32::try_from(chunk.index.unwrap_or(0)).map_err(|_| WireError::Invalid)?,
                 body: chunk.body.unwrap_or_default(),
                 last: flags & 1 != 0,
                 file_name: header.file_name,
@@ -204,7 +208,7 @@ pub fn decode_payload(bytes: &[u8]) -> Result<PayloadEvent, WireError> {
 }
 
 fn validate_chunk(chunk: &PayloadChunk) -> Result<(), WireError> {
-    if chunk.body.len() > MAX_CHUNK {
+    if chunk.body.len() > MAX_CHUNK || chunk.index > i32::MAX as u32 {
         return Err(WireError::Size);
     }
     let end = chunk
@@ -274,6 +278,8 @@ pub fn encode_share(message: &ShareMessage) -> Result<Vec<u8>, WireError> {
             ShareV1 {
                 kind: Some(1),
                 introduction: Some(Introduction {
+                    start_transfer: Some(true),
+                    use_case: Some(1),
                     files: vec![FileMeta {
                         name: Some(meta.name.clone()),
                         payload_id: Some(meta.payload_id),
@@ -378,6 +384,29 @@ fn validate_metadata(meta: &FileMetadata) -> Result<(), WireError> {
     Ok(())
 }
 
+/// Recognize bounded progress messages. Advisory progress never substitutes for
+/// receiver acceptance or a matching file acknowledgement.
+pub fn is_progress(bytes: &[u8]) -> bool {
+    if bytes.len() > MAX_CHUNK {
+        return false;
+    }
+    let Ok(frame) = ShareFrame::decode(bytes) else {
+        return false;
+    };
+    let Some(v) = frame.v1 else {
+        return false;
+    };
+    frame.version == Some(1)
+        && v.kind == Some(7)
+        && v.progress.is_some()
+        && v.introduction.is_none()
+        && v.response.is_none()
+        && v.encryption.is_none()
+        && v.key_result.is_none()
+        && v.certificates.is_none()
+        && v.bindings.is_none()
+}
+
 #[derive(Clone, PartialEq, prost::Message)]
 struct NearbyFrame {
     #[prost(int32, optional, tag = "1")]
@@ -464,6 +493,8 @@ struct Chunk {
     offset: Option<i64>,
     #[prost(bytes = "vec", optional, tag = "3")]
     body: Option<Vec<u8>>,
+    #[prost(int32, optional, tag = "4")]
+    index: Option<i32>,
 }
 #[derive(Clone, PartialEq, prost::Message)]
 struct Control {
@@ -508,8 +539,12 @@ struct Introduction {
     wifi: Vec<Vec<u8>>,
     #[prost(bytes = "vec", repeated, tag = "5")]
     apps: Vec<Vec<u8>>,
+    #[prost(bool, optional, tag = "6")]
+    start_transfer: Option<bool>,
     #[prost(bytes = "vec", repeated, tag = "7")]
     streams: Vec<Vec<u8>>,
+    #[prost(int32, optional, tag = "8")]
+    use_case: Option<i32>,
 }
 #[derive(Clone, PartialEq, prost::Message)]
 struct FileMeta {
@@ -537,20 +572,34 @@ struct Response {
 mod tests {
     use super::*;
     #[test]
+    fn introduction_sets_google_nearby_share_start_fields() {
+        let encoded = encode_share(&ShareMessage::Introduction(FileMetadata {
+            name: "data.bin".into(),
+            payload_id: 7,
+            size: 3,
+            attachment_id: 8,
+            mime_type: "application/octet-stream".into(),
+        }))
+        .unwrap();
+        // IntroductionFrame: bool start_transfer = 6; NEARBY_SHARE use_case = 8.
+        assert!(encoded.ends_with(&[48, 1, 64, 1]));
+    }
+    #[test]
     fn file_chunk_matches_published_field_number_fixture() {
         let chunk = PayloadChunk {
             id: 7,
             kind: PayloadKind::File,
             total_size: 3,
             offset: 0,
+            index: 0,
             body: b"abc".to_vec(),
             last: false,
             file_name: None,
             parent_folder: None,
         };
         let fixture = [
-            8, 1, 18, 25, 8, 3, 34, 21, 8, 1, 18, 6, 8, 7, 16, 2, 24, 3, 26, 9, 8, 0, 16, 0, 26, 3,
-            97, 98, 99,
+            8, 1, 18, 27, 8, 3, 34, 23, 8, 1, 18, 6, 8, 7, 16, 2, 24, 3, 26, 11, 8, 0, 16, 0, 26,
+            3, 97, 98, 99, 32, 0,
         ];
         assert_eq!(encode_data(&chunk).unwrap(), fixture);
         let PayloadEvent::Data(decoded) = decode_payload(&fixture).unwrap() else {
@@ -559,6 +608,33 @@ mod tests {
         assert_eq!(decoded.body, b"abc");
         assert_eq!(decoded.total_size, 3);
     }
+    #[test]
+    fn terminal_chunk_has_an_index_and_omits_an_empty_body_like_the_reference() {
+        let chunk = PayloadChunk {
+            id: 7,
+            kind: PayloadKind::File,
+            total_size: 94,
+            offset: 94,
+            index: 1,
+            body: Vec::new(),
+            last: true,
+            file_name: None,
+            parent_folder: None,
+        };
+        // PayloadChunk fields: flags=LAST_CHUNK, offset=94, index=1; no body.
+        let fixture = [
+            8, 1, 18, 22, 8, 3, 34, 18, 8, 1, 18, 6, 8, 7, 16, 2, 24, 94, 26, 6, 8, 1, 16, 94, 32,
+            1,
+        ];
+        assert_eq!(encode_data(&chunk).unwrap(), fixture);
+        let PayloadEvent::Data(decoded) = decode_payload(&fixture).unwrap() else {
+            panic!("not data")
+        };
+        assert!(decoded.last);
+        assert_eq!(decoded.index, 1);
+        assert!(decoded.body.is_empty());
+    }
+
     #[test]
     fn rejects_negative_offsets_conflicting_subframes_and_early_last() {
         let header = Header {
@@ -586,6 +662,7 @@ mod tests {
                     flags: Some(flags),
                     offset: Some(offset),
                     body: Some(b"x".to_vec()),
+                    index: Some(0),
                 }),
                 control,
             });

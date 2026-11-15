@@ -155,6 +155,10 @@ impl RemoteCertificate {
     pub fn expires_at(&self) -> i64 {
         self.end
     }
+    /// Public start time, including the protocol's timestamp obfuscation.
+    pub fn starts_at(&self) -> i64 {
+        self.start
+    }
     /// Validity including Google's half-hour clock tolerance.
     pub fn valid_at(&self, now: i64) -> bool {
         valid_at(self.start, self.end, now)

@@ -36,6 +36,10 @@ impl fmt::Debug for LocalCertificate {
 }
 
 impl LocalCertificate {
+    /// Opaque certificate identifier for internal cache binding, not account proof.
+    pub fn id(&self) -> &[u8; 32] {
+        &self.id
+    }
     /// Generate immutable metadata and independent per-certificate keys. A new
     /// certificate is required when metadata changes: AES-GCM nonce reuse with
     /// changed plaintext under the same key is not allowed.

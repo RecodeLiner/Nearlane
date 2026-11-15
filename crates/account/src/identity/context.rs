@@ -19,7 +19,7 @@ const MAX_CERTIFICATE_BYTES: usize = 4 * 1024 * 1024;
 
 pub(super) struct IdentityContext {
     name: String,
-    local: Vec<LocalCertificate>,
+    local: Vec<Arc<LocalCertificate>>,
     remote: Vec<Arc<RemoteCertificate>>,
     pub(super) publication_attempted: bool,
 }
@@ -30,14 +30,42 @@ impl fmt::Debug for IdentityContext {
 }
 
 impl IdentityContext {
+    pub(super) fn transfer_identity(
+        &mut self,
+    ) -> Result<nearlane_certificates::OwnDeviceIdentity, IdentityError> {
+        let now = now_seconds().map_err(IdentityError::Certificate)?;
+        let index = self
+            .local
+            .iter()
+            .position(|c| c.active_at(now))
+            .ok_or(IdentityError::NoSession)?;
+        let certificate = Arc::get_mut(&mut self.local[index]).ok_or(IdentityError::Busy)?;
+        let advertisement = certificate
+            .advertisement_key()
+            .map_err(IdentityError::Certificate)?;
+        Ok(nearlane_certificates::OwnDeviceIdentity {
+            certificate: Arc::clone(&self.local[index]),
+            advertisement,
+        })
+    }
+    pub(super) fn is_local_certificate(&self, id: &[u8; 32]) -> bool {
+        self.local.iter().any(|c| c.id() == id)
+    }
     pub(super) fn remote_certificates(&self) -> Vec<Arc<RemoteCertificate>> {
         self.remote.clone()
     }
     pub(super) fn new() -> Result<Self, IdentityError> {
+        Self::for_registration(&device_id()?)
+    }
+
+    pub(super) fn for_registration(id: &str) -> Result<Self, IdentityError> {
+        if id.len() != 10 || !id.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            return Err(IdentityError::Encoding);
+        }
         let start = now_seconds().map_err(IdentityError::Certificate)?;
         let mut local = Vec::with_capacity(3);
         for period in 0..3 {
-            local.push(
+            local.push(Arc::new(
                 LocalCertificate::generate(
                     DeviceMetadata::named("Nearlane").map_err(IdentityError::Certificate)?,
                     Visibility::OwnDevices,
@@ -46,10 +74,10 @@ impl IdentityContext {
                         .ok_or(IdentityError::Encoding)?,
                 )
                 .map_err(IdentityError::Certificate)?,
-            );
+            ));
         }
         Ok(Self {
-            name: format!("devices/{}", device_id()?),
+            name: format!("devices/{id}"),
             local,
             remote: Vec::new(),
             publication_attempted: false,
@@ -169,7 +197,7 @@ impl IdentityContext {
     }
 }
 
-fn device_id() -> Result<String, IdentityError> {
+pub(super) fn device_id() -> Result<String, IdentityError> {
     const ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut id = String::with_capacity(10);
     for _ in 0..128 {
@@ -202,6 +230,31 @@ fn check_cancelled(cancelled: &AtomicBool) -> Result<(), IdentityError> {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
+    #[test]
+    fn private_worker_handle_prevents_parallel_salt_mutation_then_rotates_freshly() {
+        let mut context = IdentityContext::new().unwrap();
+        let first = context.transfer_identity().unwrap();
+        assert!(matches!(
+            context.transfer_identity(),
+            Err(IdentityError::Busy)
+        ));
+        assert!(context.is_local_certificate(first.certificate.id()));
+        let key = first.advertisement.to_bytes();
+        drop(first);
+        let second = context.transfer_identity().unwrap();
+        assert_ne!(&key[..2], &second.advertisement.to_bytes()[..2]);
+    }
+
+    #[test]
+    fn restored_registration_reuses_name_but_generates_fresh_certificate_keys() {
+        let a = IdentityContext::for_registration("TestDevice").unwrap();
+        let b = IdentityContext::for_registration("TestDevice").unwrap();
+        assert_eq!(a.name, b.name);
+        assert_ne!(a.local[0].id(), b.local[0].id());
+        assert!(a.is_local_certificate(a.local[0].id()));
+        assert!(!a.is_local_certificate(b.local[0].id()));
+        assert!(IdentityContext::for_registration("invalid/path").is_err());
+    }
 
     #[derive(Default)]
     struct FakeIdentity {

@@ -103,7 +103,7 @@ impl AuthorizationAttempt {
             .append_pair("state", &self.state)
             .append_pair("code_challenge", &pkce::challenge(&self.verifier))
             .append_pair("code_challenge_method", "S256")
-            .append_pair("prompt", "select_account")
+            .append_pair("prompt", "select_account consent")
             .append_pair("access_type", "offline");
         Ok(url)
     }

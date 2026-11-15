@@ -21,6 +21,10 @@ use nearlane_certificates::CertificateError;
 use context::IdentityContext;
 use rpc::GoogleIdentityClient;
 
+pub(crate) fn registration_id() -> Result<String, IdentityError> {
+    context::device_id()
+}
+
 /// Bounded certificate exchange counts. No device/account names or keys.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CertificateSummary {
@@ -149,6 +153,22 @@ impl fmt::Debug for PrivateSharing {
 }
 
 impl PrivateSharing {
+    pub(crate) fn transfer_identity(
+        &mut self,
+    ) -> Result<nearlane_certificates::OwnDeviceIdentity, IdentityError> {
+        if self.busy() || !matches!(self.status, PrivateStatus::Ready(_)) {
+            return Err(IdentityError::Busy);
+        }
+        self.context
+            .as_mut()
+            .ok_or(IdentityError::NoSession)?
+            .transfer_identity()
+    }
+    pub(crate) fn is_local_certificate(&self, id: &[u8; 32]) -> bool {
+        self.context
+            .as_ref()
+            .is_some_and(|c| c.is_local_certificate(id))
+    }
     pub(crate) fn remote_certificates(&self) -> Vec<Arc<nearlane_certificates::RemoteCertificate>> {
         self.context
             .as_ref()
@@ -162,11 +182,15 @@ impl PrivateSharing {
         self.pending.is_some()
     }
 
-    pub(crate) fn prepare(&mut self, grant: Arc<TokenGrant>) -> Result<(), IdentityError> {
+    pub(crate) fn prepare(
+        &mut self,
+        grant: Arc<TokenGrant>,
+        registration: &str,
+    ) -> Result<(), IdentityError> {
         if self.busy() {
             return Err(IdentityError::Busy);
         }
-        if let Err(error) = self.spawn(grant, Mode::Setup) {
+        if let Err(error) = self.spawn(grant, Mode::Setup, Some(registration.to_owned())) {
             self.status = PrivateStatus::Failed(error);
             return Err(error);
         }
@@ -185,7 +209,7 @@ impl PrivateSharing {
             .is_some_and(|c| c.publication_attempted)
         {
             if let Some(grant) = grant {
-                if self.spawn(grant, Mode::Cleanup).is_ok() {
+                if self.spawn(grant, Mode::Cleanup, None).is_ok() {
                     self.status = PrivateStatus::SigningOut;
                     return;
                 }
@@ -244,7 +268,12 @@ impl PrivateSharing {
         }
     }
 
-    fn spawn(&mut self, grant: Arc<TokenGrant>, mode: Mode) -> Result<(), IdentityError> {
+    fn spawn(
+        &mut self,
+        grant: Arc<TokenGrant>,
+        mode: Mode,
+        registration: Option<String>,
+    ) -> Result<(), IdentityError> {
         let slot = Arc::new(Mutex::new(self.context.take()));
         let worker_slot = Arc::clone(&slot);
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -257,7 +286,14 @@ impl PrivateSharing {
             .name("nearlane-certificates".into())
             .spawn(move || {
                 let context = worker_slot.lock().ok().and_then(|mut slot| slot.take());
-                let result = run(context, &worker_grant, mode, &worker_cancel, &worker_logout);
+                let result = run(
+                    context,
+                    &worker_grant,
+                    mode,
+                    &worker_cancel,
+                    &worker_logout,
+                    registration.as_deref(),
+                );
                 let _ = sender.send(result);
             });
         if spawned.is_err() {
@@ -280,8 +316,13 @@ fn run(
     mode: Mode,
     cancelled: &AtomicBool,
     logout: &AtomicBool,
+    registration: Option<&str>,
 ) -> WorkResult {
-    let mut context = match existing.map(Ok).unwrap_or_else(IdentityContext::new) {
+    let mut context = match existing.map(Ok).unwrap_or_else(|| {
+        registration
+            .map(IdentityContext::for_registration)
+            .unwrap_or_else(IdentityContext::new)
+    }) {
         Ok(context) => context,
         Err(error) => {
             return WorkResult {

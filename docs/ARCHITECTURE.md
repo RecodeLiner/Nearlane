@@ -11,7 +11,9 @@ desktop (Qt/QML) ──> service ──> core
                       └─────> platform
                       └─────> account ──> auth
                                   └────> certificates ──> core + RustCrypto
+                                  └────> platform ──> OS credential store
                       └─────> discovery ──> certificates + mDNS
+                      └─────> transfer ──> protocol + certificates
 cli ──────────────> service
  └────────────────> auth
 cli ──────────────> transfer ──> protocol ──> Google UKEY2 + RustCrypto
@@ -41,25 +43,40 @@ non-UI Rust packages forbid unsafe code.
    Quick Share permission was confirmed in the UI on 2026-11-15.
 3. Certificate publication/download: implemented, real API exchange confirmed
    (9 own-device certificates, 6 active, no malformed records).
-   Real Contacts/OwnDevices discovery and handshake are still required.
+   Wi-Fi LAN advertisement matching is confirmed on the authorized Android phone.
+   Live account-backed verification is implemented and required for each transfer.
 4. One small file exchanged with Android while public visibility remains off.
 5. Background lifecycle, tray, OS secret stores, recovery and packaging.
 
-The encrypted file engine now streams a single file in bounded Nearby payloads,
-with a sharing introduction/response subset and receiver acknowledgement. Its
-loopback harness verifies two process-owned peers, saves without overwriting and
-checks the reread digest. This is not the Android milestone: production discovery,
-Nearby connection setup and account-backed paired-key verification remain
-unconnected. The local harness now uses real paired-key frame shapes and
-synthetic certificate signatures instead of process-local auth-token exchange.
-The desktop explicitly browses Wi-Fi LAN advertisements, shows only names from
-certificate-authenticated metadata, and remains hidden. No file receiver is
-advertised and private visibility capabilities stay disabled.
+The encrypted file engine now streams a single file in bounded Nearby payloads, with a
+sharing introduction/response subset and receiver acknowledgement. Its loopback harness
+verifies two process-owned peers, saves without overwriting and checks the reread
+digest. The explicit outgoing desktop operation now connects discovery to current
+account-backed signing credentials, Nearby setup, mutual paired-key proofs, receiver
+consent, streaming and payload acknowledgement. Full-stack automated tests use simulated
+owned peers. A real Android peer advertised feature version 4: the optional version-6
+payload receipt is not a transport acceptance requirement. After chunk-index/EOF
+corrections, a 94-byte private outgoing file was confirmed as saved and opening
+successfully on that phone. No wire receipt is inferred from that external observation;
+legacy EOF cleanup is bounded and missing receipts remain explicit in the sender status.
+The legacy local harness uses real paired-key frame shapes and synthetic certificate
+signatures instead of process-local auth-token exchange. The desktop explicitly browses
+Wi-Fi LAN advertisements, shows only names from certificate-authenticated metadata, and
+remains hidden. No file receiver is advertised and private visibility capabilities stay
+disabled.
 
 Sign-out is owned by the service: reset visibility/trust, then cancel the browser
 attempt and drop the account session. Future discovery/connections/certificate
 adapters must be shut down there, following Google's published service lifecycle.
 Provider-wide OAuth revocation is distinct from ordinary device sign-out.
+The saved-login worker serializes OS-vault reads/writes, Google refresh and
+deletion. UI startup or explicit CLI send-own starts restore; service construction
+and offline CLI diagnostics stay offline.
+Generation-checked completions cannot revive a signed-out session. Restored
+sessions reuse their registration ID but generate fresh in-memory certificate
+keys; do not confuse this with persisted radio/private key state. Tokens refresh
+before expiry, transient failures keep the saved grant, and revoked grants fail
+closed. Platform-specific storage is isolated from Qt and authentication parsing.
 The account worker now publishes only SELF certificates to the fixed Nearby
 Identity gRPC service and queries a bounded, memory-only certificate cache.
 Signing out requests an empty SELF publication for the same owned resource;

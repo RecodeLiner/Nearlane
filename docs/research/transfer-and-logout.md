@@ -35,6 +35,9 @@ download, sharing paired-key verification, keepalive dispatch, multiplexing,
 production consent handling or cross-device recovery. The private-mode capability
 flags stay false. No nearby third-party device has been scanned or contacted.
 
+Live Android connection setup and private transfer are implemented outside
+this loopback harness; see [native-outgoing.md](native-outgoing.md).
+
 ## Sign-out, based on the published service
 
 Google's NearbySharingServiceImpl::OnLogoutSucceeded forces a new endpoint ID and

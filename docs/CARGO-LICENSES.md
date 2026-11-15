@@ -9,6 +9,16 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | aes-gcm | 0.10.3 | Apache-2.0 OR MIT |
 | aes-gcm-siv | 0.11.1 | MIT OR Apache-2.0 |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 |
+| async-broadcast | 0.7.2 | MIT OR Apache-2.0 |
+| async-channel | 2.5.0 | Apache-2.0 OR MIT |
+| async-executor | 1.14.1 | Apache-2.0 OR MIT |
+| async-fs | 2.2.0 | Apache-2.0 OR MIT |
+| async-io | 2.6.0 | Apache-2.0 OR MIT |
+| async-lock | 3.5.0 | Apache-2.0 OR MIT |
+| async-process | 2.5.0 | Apache-2.0 OR MIT |
+| async-recursion | 1.2.0 | MIT OR Apache-2.0 |
+| async-signal | 0.2.14 | Apache-2.0 OR MIT |
+| async-task | 4.7.1 | Apache-2.0 OR MIT |
 | async-trait | 0.1.92 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
 | autocfg | 1.5.1 | Apache-2.0 OR MIT |
@@ -19,7 +29,9 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | bitflags | 2.13.2 | MIT OR Apache-2.0 |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 |
 | block-padding | 0.3.3 | MIT OR Apache-2.0 |
+| blocking | 1.7.0 | Apache-2.0 OR MIT |
 | bumpalo | 3.20.4 | MIT OR Apache-2.0 |
+| byteorder | 1.5.0 | Unlicense OR MIT |
 | bytes | 1.12.1 | MIT |
 | cbc | 0.1.2 | MIT OR Apache-2.0 |
 | cc | 1.11.2 | MIT OR Apache-2.0 |
@@ -30,10 +42,15 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | clang-format | 0.3.0 | MIT OR Apache-2.0 |
 | codespan-reporting | 0.11.1 | Apache-2.0 |
 | codespan-reporting | 0.13.1 | Apache-2.0 |
+| concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | const-oid | 0.9.6 | Apache-2.0 OR MIT |
 | convert_case | 0.6.0 | MIT |
+| core-foundation | 0.10.1 | MIT OR Apache-2.0 |
+| core-foundation | 0.9.4 | MIT OR Apache-2.0 |
+| core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
 | cpufeatures | 0.3.1 | MIT OR Apache-2.0 |
+| crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
 | crypto-bigint | 0.5.5 | Apache-2.0 OR MIT |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 |
 | ctr | 0.9.2 | MIT OR Apache-2.0 |
@@ -49,6 +66,8 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | cxx-qt-macro | 0.10.0 | MIT OR Apache-2.0 |
 | cxxbridge-flags | 1.0.198 | MIT OR Apache-2.0 |
 | cxxbridge-macro | 1.0.198 | MIT OR Apache-2.0 |
+| dbus | 0.9.12 | Apache-2.0/MIT |
+| dbus-secret-service | 4.1.0 | MIT OR Apache-2.0 |
 | der | 0.7.10 | Apache-2.0 OR MIT |
 | digest | 0.10.7 | MIT OR Apache-2.0 |
 | displaydoc | 0.2.7 | MIT OR Apache-2.0 |
@@ -57,8 +76,13 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | ed25519-dalek | 2.2.0 | BSD-3-Clause |
 | either | 1.19.0 | MIT OR Apache-2.0 |
 | elliptic-curve | 0.13.8 | Apache-2.0 OR MIT |
+| endi | 1.1.1 | MIT |
+| enumflags2 | 0.7.12 | MIT OR Apache-2.0 |
+| enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
 | errno | 0.3.15 | MIT OR Apache-2.0 |
+| event-listener | 5.4.2 | Apache-2.0 OR MIT |
+| event-listener-strategy | 0.5.4 | Apache-2.0 OR MIT |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | ff | 0.13.1 | MIT/Apache-2.0 |
 | fiat-crypto | 0.2.9 | MIT OR Apache-2.0 OR BSD-1-Clause |
@@ -70,6 +94,8 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | futures-channel | 0.3.34 | MIT OR Apache-2.0 |
 | futures-core | 0.3.34 | MIT OR Apache-2.0 |
 | futures-io | 0.3.34 | MIT OR Apache-2.0 |
+| futures-lite | 2.6.1 | Apache-2.0 OR MIT |
+| futures-macro | 0.3.34 | MIT OR Apache-2.0 |
 | futures-sink | 0.3.34 | MIT OR Apache-2.0 |
 | futures-task | 0.3.34 | MIT OR Apache-2.0 |
 | futures-util | 0.3.34 | MIT OR Apache-2.0 |
@@ -80,6 +106,8 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | group | 0.13.0 | MIT/Apache-2.0 |
 | h2 | 0.4.20 | MIT |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 |
+| hermit-abi | 0.5.3 | MIT OR Apache-2.0 |
+| hex | 0.4.3 | MIT OR Apache-2.0 |
 | hkdf | 0.12.4 | MIT OR Apache-2.0 |
 | hmac | 0.12.1 | MIT OR Apache-2.0 |
 | http | 1.5.0 | MIT OR Apache-2.0 |
@@ -109,7 +137,9 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
 | jobserver | 0.1.35 | MIT OR Apache-2.0 |
 | js-sys | 0.3.107 | MIT OR Apache-2.0 |
+| keyring | 3.6.3 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
+| libdbus-sys | 0.2.7 | Apache-2.0/MIT |
 | link-cplusplus | 1.0.12 | MIT OR Apache-2.0 |
 | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
@@ -118,25 +148,37 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | lru-slab | 0.1.3 | MIT OR Apache-2.0 OR Zlib |
 | mdns-sd | 0.21.7 | Apache-2.0 OR MIT |
 | memchr | 2.8.3 | Unlicense OR MIT |
+| memoffset | 0.9.1 | MIT |
 | minimal-lexical | 0.2.1 | MIT/Apache-2.0 |
 | mio | 1.2.5 | MIT |
+| nix | 0.29.0 | MIT |
 | nom | 7.1.3 | MIT |
+| num | 0.4.3 | MIT OR Apache-2.0 |
 | num-bigint | 0.4.8 | MIT OR Apache-2.0 |
+| num-complex | 0.4.6 | MIT OR Apache-2.0 |
 | num-integer | 0.1.47 | MIT OR Apache-2.0 |
+| num-iter | 0.1.46 | MIT OR Apache-2.0 |
+| num-rational | 0.4.2 | MIT OR Apache-2.0 |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
 | opaque-debug | 0.3.1 | MIT OR Apache-2.0 |
+| ordered-stream | 0.2.0 | MIT OR Apache-2.0 |
 | p256 | 0.13.2 | Apache-2.0 OR MIT |
+| parking | 2.2.1 | Apache-2.0 OR MIT |
 | pem-rfc7468 | 0.7.0 | Apache-2.0 OR MIT |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 |
 | pin-project | 1.1.13 | Apache-2.0 OR MIT |
 | pin-project-internal | 1.1.13 | Apache-2.0 OR MIT |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
+| piper | 0.2.5 | MIT OR Apache-2.0 |
 | pkcs8 | 0.10.2 | Apache-2.0 OR MIT |
+| pkg-config | 0.3.34 | MIT OR Apache-2.0 |
+| polling | 3.11.0 | Apache-2.0 OR MIT |
 | polyval | 0.6.2 | Apache-2.0 OR MIT |
 | potential_utf | 0.1.6 | Unicode-3.0 |
 | ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 |
 | primeorder | 0.13.6 | Apache-2.0 OR MIT |
+| proc-macro-crate | 3.5.0 | MIT OR Apache-2.0 |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
 | prost | 0.14.6 | Apache-2.0 |
 | prost-derive | 0.14.6 | Apache-2.0 |
@@ -168,14 +210,21 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | scopeguard | 1.2.0 | MIT OR Apache-2.0 |
 | scratch | 1.0.9 | MIT OR Apache-2.0 |
 | sec1 | 0.7.3 | Apache-2.0 OR MIT |
+| secret-service | 4.0.0 | MIT OR Apache-2.0 |
+| security-framework | 2.11.1 | MIT OR Apache-2.0 |
+| security-framework | 3.7.0 | MIT OR Apache-2.0 |
+| security-framework-sys | 2.17.0 | MIT OR Apache-2.0 |
 | semver | 1.0.28 | MIT OR Apache-2.0 |
 | serde | 1.0.229 | MIT OR Apache-2.0 |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 |
 | serde_derive | 1.0.229 | MIT OR Apache-2.0 |
 | serde_json | 1.0.154 | MIT OR Apache-2.0 |
+| serde_repr | 0.1.21 | MIT OR Apache-2.0 |
 | serde_urlencoded | 0.7.1 | MIT/Apache-2.0 |
+| sha1 | 0.10.7 | MIT OR Apache-2.0 |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 |
 | shlex | 2.0.1 | MIT OR Apache-2.0 |
+| signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 |
 | signature | 2.2.0 | Apache-2.0 OR MIT |
 | slab | 0.4.12 | MIT |
 | smallvec | 1.16.5 | MIT OR Apache-2.0 |
@@ -203,6 +252,9 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | tokio-rustls | 0.26.6 | MIT OR Apache-2.0 |
 | tokio-stream | 0.1.19 | MIT |
 | tokio-util | 0.7.20 | MIT |
+| toml_datetime | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_edit | 0.25.19+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_parser | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 |
 | tonic | 0.14.5 | MIT |
 | tonic-prost | 0.14.5 | MIT |
 | tower | 0.5.3 | MIT |
@@ -214,6 +266,7 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | tracing-core | 0.1.36 | MIT |
 | try-lock | 0.2.5 | MIT |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
+| uds_windows | 1.2.1 | MIT |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 |
 | unicode-width | 0.1.14 | MIT OR Apache-2.0 |
@@ -238,26 +291,46 @@ Generated from Cargo.lock and cargo metadata on 2026-11-15. This includes target
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | windows-link | 0.2.1 | MIT OR Apache-2.0 |
 | windows-sys | 0.52.0 | MIT OR Apache-2.0 |
+| windows-sys | 0.59.0 | MIT OR Apache-2.0 |
+| windows-sys | 0.60.2 | MIT OR Apache-2.0 |
 | windows-sys | 0.61.2 | MIT OR Apache-2.0 |
 | windows-targets | 0.52.6 | MIT OR Apache-2.0 |
+| windows-targets | 0.53.5 | MIT OR Apache-2.0 |
 | windows_aarch64_gnullvm | 0.52.6 | MIT OR Apache-2.0 |
+| windows_aarch64_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
 | windows_aarch64_msvc | 0.52.6 | MIT OR Apache-2.0 |
+| windows_aarch64_msvc | 0.53.1 | MIT OR Apache-2.0 |
 | windows_i686_gnu | 0.52.6 | MIT OR Apache-2.0 |
+| windows_i686_gnu | 0.53.1 | MIT OR Apache-2.0 |
 | windows_i686_gnullvm | 0.52.6 | MIT OR Apache-2.0 |
+| windows_i686_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
 | windows_i686_msvc | 0.52.6 | MIT OR Apache-2.0 |
+| windows_i686_msvc | 0.53.1 | MIT OR Apache-2.0 |
 | windows_x86_64_gnu | 0.52.6 | MIT OR Apache-2.0 |
+| windows_x86_64_gnu | 0.53.1 | MIT OR Apache-2.0 |
 | windows_x86_64_gnullvm | 0.52.6 | MIT OR Apache-2.0 |
+| windows_x86_64_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 |
+| windows_x86_64_msvc | 0.53.1 | MIT OR Apache-2.0 |
+| winnow | 1.0.5 | MIT |
 | writeable | 0.6.4 | Unicode-3.0 |
 | x25519-dalek | 2.0.1 | BSD-3-Clause |
+| xdg-home | 1.3.0 | MIT |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
+| zbus | 4.4.0 | MIT |
+| zbus_macros | 4.4.0 | MIT |
+| zbus_names | 3.0.0 | MIT |
 | zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerocopy-derive | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerofrom | 0.1.8 | Unicode-3.0 |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
 | zeroize | 1.9.1 | Apache-2.0 OR MIT |
+| zeroize_derive | 1.5.0 | Apache-2.0 OR MIT |
 | zerotrie | 0.2.5 | Unicode-3.0 |
 | zerovec | 0.11.9 | Unicode-3.0 |
 | zerovec-derive | 0.11.7 | Unicode-3.0 |
 | zmij | 1.0.23 | MIT |
+| zvariant | 4.2.0 | MIT |
+| zvariant_derive | 4.2.0 | MIT |
+| zvariant_utils | 2.1.0 | MIT |

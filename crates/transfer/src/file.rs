@@ -55,6 +55,7 @@ pub fn send_file<S: Read + Write>(
 ) -> Result<FileSummary, TransferError> {
     validate_offer(offer, max_file_bytes)?;
     let mut offset = 0;
+    let mut index = 0;
     let mut digest = Sha256::new();
     let mut buffer = vec![0_u8; MAX_CHUNK];
     while offset < offer.size {
@@ -76,12 +77,14 @@ pub fn send_file<S: Read + Write>(
             kind: PayloadKind::File,
             total_size: offer.size,
             offset,
+            index,
             body: buffer[..length].to_vec(),
             last: false,
             file_name: Some(offer.name.clone()),
             parent_folder: None,
         })?)?;
         offset += length as u64;
+        index += 1;
     }
     if cancellation.is_cancelled() {
         let _ = channel.send(&wire::encode_cancel(offer.payload_id, offset)?);
@@ -97,6 +100,7 @@ pub fn send_file<S: Read + Write>(
         kind: PayloadKind::File,
         total_size: offer.size,
         offset,
+        index,
         body: Vec::new(),
         last: true,
         file_name: Some(offer.name.clone()),
@@ -158,7 +162,7 @@ fn validate_offer(offer: &FileOffer, max_file_bytes: u64) -> Result<(), Transfer
     Ok(())
 }
 
-struct FileSink {
+pub(crate) struct FileSink {
     offer: FileOffer,
     temporary: NamedTempFile,
     destination: std::path::PathBuf,
@@ -169,7 +173,11 @@ struct FileSink {
 }
 
 impl FileSink {
-    fn new(offer: &FileOffer, directory: &Path, max: u64) -> Result<Self, TransferError> {
+    pub(crate) fn new(
+        offer: &FileOffer,
+        directory: &Path,
+        max: u64,
+    ) -> Result<Self, TransferError> {
         validate_offer(offer, max)?;
         let temporary = tempfile::Builder::new()
             .prefix(".nearlane-")
@@ -185,7 +193,7 @@ impl FileSink {
         })
     }
 
-    fn apply(&mut self, chunk: &PayloadChunk) -> Result<bool, TransferError> {
+    pub(crate) fn apply(&mut self, chunk: &PayloadChunk) -> Result<bool, TransferError> {
         let result = self.apply_checked(chunk);
         if result.is_err() {
             self.failed = true;
@@ -226,7 +234,7 @@ impl FileSink {
         Ok(self.complete)
     }
 
-    fn finish(mut self) -> Result<ReceivedFile, TransferError> {
+    pub(crate) fn finish(mut self) -> Result<ReceivedFile, TransferError> {
         if !self.complete || self.failed || self.offset != self.offer.size {
             return Err(TransferError::Sequence);
         }
@@ -262,6 +270,7 @@ mod tests {
     }
     fn chunk(offset: u64, body: &[u8], last: bool) -> PayloadChunk {
         PayloadChunk {
+            index: 0,
             id: 7,
             kind: PayloadKind::File,
             total_size: 4,

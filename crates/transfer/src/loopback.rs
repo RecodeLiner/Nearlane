@@ -233,6 +233,7 @@ fn send_bytes(
     body: Vec<u8>,
 ) -> Result<(), TransferError> {
     channel.send(&wire::encode_data(&PayloadChunk {
+        index: 0,
         id,
         kind: PayloadKind::Bytes,
         total_size: body.len() as u64,

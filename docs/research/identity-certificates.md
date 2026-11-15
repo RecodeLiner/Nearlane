@@ -75,9 +75,7 @@ Keys are not persisted or refreshed. App exit can interrupt cleanup, and remote
 certificates can remain until expiry (maximum nine days plus two hours). Normal
 sign-out does not remove browser cookies or revoke the OAuth application grant.
 
-This build stays hidden even after a successful server exchange. Explicit Wi-Fi
-LAN discovery and advertisement matching are now implemented, with no connections
-to candidates. Paired-key frames/signatures are validated over an encrypted
-loopback connection with synthetic identities. Real connection setup,
-account-backed paired-key verification and Android file transfer remain to be
-wired and checked with an owned phone.
+Certificate exchange alone does not enable trust. Private Wi-Fi LAN discovery,
+account-backed mutual proofs and a 94-byte outgoing transfer have been implemented
+and verified on a real Android phone; see [native-outgoing.md](native-outgoing.md).
+Incoming reception remains outside this implementation stage.

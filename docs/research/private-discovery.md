@@ -34,9 +34,10 @@ cancellation and paired-key role/token/certificate mismatch. The file harness
 exchanges actual paired-key frame shapes using process-owned synthetic keys;
 real Google certificate distribution is not simulated as proof of compatibility.
 
-Real phone discovery is not yet confirmed. Android may require Bluetooth-assisted
-discovery or announce differently; an empty Wi-Fi LAN search is not evidence that
-private sharing is impossible. Bluetooth, IPv6 and a full Nearby connection
-session remain work. No production private-mode capability is enabled by this
-stage, even if a candidate appears. Google account tokens are not used by the
-discovery worker, and the automated tests do not scan the LAN.
+Subsequent testing confirmed discovery of the authorized Android phone. Other Android
+states may require Bluetooth-assisted discovery or announce differently; an empty Wi-Fi
+LAN search is not evidence that private sharing is impossible. A full Nearby connection
+and outgoing private transfer were subsequently implemented and verified on Android; see
+[native-outgoing.md](native-outgoing.md). Discovery alone still does not authorize a
+transfer. IPv6 remains unsupported. Google account tokens are not used by the discovery
+worker, and the automated tests do not scan the LAN.

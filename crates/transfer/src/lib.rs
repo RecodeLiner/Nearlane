@@ -1,11 +1,15 @@
 //! Streaming file payloads using Nearby's published wire format.
 //!
 //! Production callers must establish certificate-backed peer trust and explicit
-//! acceptance before using these functions. Only the local self-test is wired
-//! into an executable; this crate does not discover or advertise devices.
+//! acceptance before file content. The desktop wires an explicit outgoing
+//! operation to a recently certificate-matched candidate. This crate does not
+//! discover or advertise devices and does not open a production file receiver.
 
 mod file;
 mod loopback;
+mod outgoing;
+mod session;
+pub use outgoing::{SendFailure, SendFailureKind, SendJob, SendPhase, SendProgress};
 
 use std::{
     fmt, io,
@@ -78,7 +82,7 @@ pub enum TransferError {
     Cancelled,
     /// The receiver declined the offer or could not save it.
     Rejected,
-    /// The owned local test peers did not agree on their UKEY2 authentication value.
+    /// The required peer authentication proof did not succeed.
     PeerVerification,
     /// An owned self-test worker stopped or timed out.
     Worker,
@@ -95,7 +99,7 @@ impl fmt::Display for TransferError {
             Self::SourceChanged => "Source file length changed during transfer",
             Self::Cancelled => "File transfer cancelled",
             Self::Rejected => "File offer rejected",
-            Self::PeerVerification => "Local UKEY2 peer verification failed",
+            Self::PeerVerification => "Private peer verification failed",
             Self::Worker => "Local transfer test worker failed",
         })
     }

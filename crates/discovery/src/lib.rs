@@ -49,14 +49,25 @@ impl std::error::Error for DiscoveryError {}
 
 /// Candidate authenticated by an advertisement commitment and metadata AEAD.
 /// This still requires a live paired-key signature proof before any file use.
+#[derive(Clone)]
 pub struct OwnDevice {
     name: String,
     certificate: Arc<RemoteCertificate>,
     endpoint: [u8; 4],
     address: Ipv4Addr,
     port: u16,
+    discovered: Instant,
 }
 impl OwnDevice {
+    /// Restrict connection attempts to recently observed, matched advertisements.
+    pub fn is_recent(&self) -> bool {
+        self.discovered.elapsed() <= Duration::from_secs(120)
+    }
+    /// Certificate-bound discovery destination for the trusted transfer worker.
+    /// Never expose the address to QML or follow later peer-supplied redirects.
+    pub fn socket_address(&self) -> std::net::SocketAddrV4 {
+        std::net::SocketAddrV4::new(self.address, self.port)
+    }
     /// Authenticated metadata name, suitable for plain-text UI display.
     pub fn name(&self) -> &str {
         &self.name
@@ -207,6 +218,7 @@ fn identify(
                 endpoint: ad.endpoint,
                 address,
                 port: info.get_port(),
+                discovered: Instant::now(),
             });
         }
     }

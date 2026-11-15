@@ -1,4 +1,5 @@
 //! OS integration boundary. No fake Bluetooth discovery or secret storage.
+pub mod credentials;
 
 /// Identifies where a future OS-specific adapter must be implemented.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

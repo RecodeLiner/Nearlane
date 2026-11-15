@@ -3,6 +3,7 @@
 //! Framing, Google's published UKEY2/D2D adapter and a bounded payload subset.
 //! Encrypted transport alone does not establish contact/device identity.
 
+pub mod connection;
 pub mod paired;
 pub mod secure;
 pub mod wire;

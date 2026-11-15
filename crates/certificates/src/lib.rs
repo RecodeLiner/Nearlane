@@ -17,6 +17,20 @@ use std::fmt;
 pub use local::LocalCertificate;
 pub use remote::{DeviceMetadata, RemoteCertificate};
 
+/// Trusted-worker handle to this session's private certificate and fresh
+/// advertisement material. Never send this handle or its fields to QML/logs.
+pub struct OwnDeviceIdentity {
+    /// Shared immutable signing credential; no private key serialization.
+    pub certificate: std::sync::Arc<LocalCertificate>,
+    /// Fresh rotating metadata key generated before sharing the private handle.
+    pub advertisement: EncryptedMetadataKey,
+}
+impl fmt::Debug for OwnDeviceIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("OwnDeviceIdentity([REDACTED])")
+    }
+}
+
 /// Rotating advertisement key: a two-byte salt and fourteen encrypted bytes.
 /// This is broadcast data, but Debug omits it to avoid creating a tracking log.
 #[derive(Clone, Copy, Eq, PartialEq)]

@@ -7,6 +7,7 @@ mod config;
 mod exchange;
 mod identity;
 mod loopback;
+mod saved;
 
 use std::{
     fmt,
@@ -24,6 +25,8 @@ pub use config::ClientConfig;
 use identity::PrivateSharing;
 pub use identity::{CertificateSummary, IdentityError, PrivateStatus};
 use nearlane_auth::{AuthorizationAttempt, TokenGrant, TokenRequest};
+pub use saved::SavedLoginStatus;
+use saved::{SavedLogin, Signal};
 
 /// Sanitized failures. No provider response, URL, code or token is retained here.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -52,6 +55,10 @@ pub enum LoginError {
     WorkerStopped,
     /// An authorization attempt is already in progress.
     Busy,
+    /// The OS credential store could not be used securely.
+    SecureStorage,
+    /// Google invalidated the offline grant; browser consent is required again.
+    RefreshRejected,
 }
 
 impl fmt::Display for LoginError {
@@ -71,6 +78,8 @@ impl fmt::Display for LoginError {
             Self::InvalidGrant => "Google did not return the required Quick Share permission.",
             Self::WorkerStopped => "The sign-in worker stopped unexpectedly.",
             Self::Busy => "A sign-in attempt is already in progress.",
+            Self::SecureStorage => "The system credential store is unavailable or locked. Unlock it and retry saved sign-in.",
+            Self::RefreshRejected => "The saved Google permission expired or was revoked. Sign in again.",
         })
     }
 }
@@ -83,6 +92,8 @@ pub enum AccountStatus {
     Unconfigured,
     /// Ready to start a browser authorization attempt.
     Ready,
+    /// Restoring or renewing an expired saved session without a browser.
+    Restoring,
     /// Listener is bound; waiting for consent in the browser.
     WaitingForBrowser,
     /// The validated one-use code is being exchanged over HTTPS.
@@ -103,6 +114,7 @@ impl AccountStatus {
         match self {
             Self::Unconfigured => "Local sign-in configuration is not available.".into(),
             Self::Ready => "Ready to sign in through your browser.".into(),
+            Self::Restoring => "Restoring saved Google permission…".into(),
             Self::WaitingForBrowser => "Complete sign-in in your browser. Choose a test account.".into(),
             Self::Exchanging => "Checking the permission returned by Google…".into(),
             Self::Authorized => "Quick Share permission granted. This device remains hidden while private sharing support is being completed.".into(),
@@ -130,6 +142,22 @@ impl fmt::Debug for BrowserAuthorization {
 struct Session {
     _grant: Arc<TokenGrant>,
     expires_at: Instant,
+    registration: String,
+}
+impl Session {
+    fn new(grant: TokenGrant, registration: Option<String>) -> Result<Self, LoginError> {
+        if !grant.has_sharing_permission() {
+            return Err(LoginError::InvalidGrant);
+        }
+        Ok(Self {
+            expires_at: Instant::now() + Duration::from_secs(grant.expires_in()),
+            _grant: Arc::new(grant),
+            registration: match registration {
+                Some(id) => id,
+                None => identity::registration_id().map_err(|_| LoginError::WorkerStopped)?,
+            },
+        })
+    }
 }
 
 struct PendingLogin {
@@ -182,10 +210,7 @@ impl PendingLogin {
                     if !grant.has_sharing_permission() {
                         return Err(LoginError::InvalidGrant);
                     }
-                    Ok(Session {
-                        expires_at: Instant::now() + Duration::from_secs(grant.expires_in()),
-                        _grant: Arc::new(grant),
-                    })
+                    Session::new(grant, None)
                 });
                 // Exactly one terminal result is sent; dropped/cancelled UIs do not
                 // retain grants in a detached global store.
@@ -216,6 +241,10 @@ pub struct Account {
     session: Option<Session>,
     status: AccountStatus,
     private: PrivateSharing,
+    saved: Option<SavedLogin>,
+    saved_status: SavedLoginStatus,
+    next_refresh: Option<Instant>,
+    next_restore: Option<Instant>,
 }
 
 impl fmt::Debug for Account {
@@ -241,6 +270,10 @@ impl Account {
             session: None,
             status,
             private: PrivateSharing::default(),
+            saved: None,
+            saved_status: SavedLoginStatus::NotSaved,
+            next_refresh: None,
+            next_restore: None,
         }
     }
 
@@ -254,7 +287,61 @@ impl Account {
     }
     /// Whether one browser or network operation is in progress.
     pub fn busy(&self) -> bool {
-        self.pending.is_some() || self.private.busy()
+        self.pending.is_some()
+            || self.private.busy()
+            || self.saved.as_ref().is_some_and(SavedLogin::busy)
+    }
+
+    /// Safe persistence progress; no vault/account values are exposed.
+    pub fn saved_login_status(&self) -> SavedLoginStatus {
+        self.saved
+            .as_ref()
+            .map(SavedLogin::status)
+            .unwrap_or(self.saved_status)
+    }
+    /// Whether an OS-vault entry might exist, including failed deletion.
+    pub fn has_saved_login(&self) -> bool {
+        self.saved.as_ref().is_some_and(SavedLogin::may_have_saved)
+            || self.saved_status == SavedLoginStatus::ClearFailed
+    }
+    fn ensure_saved(&mut self) -> Result<&mut SavedLogin, LoginError> {
+        if self.saved.is_none() {
+            let config = self.config.clone().ok_or(LoginError::Configuration)?;
+            self.saved = Some(SavedLogin::native(config).inspect_err(|_| {
+                self.saved_status = SavedLoginStatus::Unavailable;
+            })?);
+        }
+        self.saved.as_mut().ok_or(LoginError::WorkerStopped)
+    }
+    /// Called explicitly by the desktop at startup; CLI/config construction stays
+    /// offline. Only this app's OS-vault entry and fixed Google token API are used.
+    pub fn restore_saved_sign_in(&mut self) -> Result<(), LoginError> {
+        if self.busy() {
+            return Err(LoginError::Busy);
+        }
+        self.next_restore = None;
+        if let Some(session) = &self.session {
+            if Instant::now() < session.expires_at {
+                return Err(LoginError::Busy);
+            }
+            let grant = Arc::clone(&session._grant);
+            let id = session.registration.clone();
+            self.ensure_saved()?.renew(&grant, &id);
+        } else {
+            self.ensure_saved()?.restore();
+        }
+        self.status = AccountStatus::Restoring;
+        Ok(())
+    }
+    fn schedule_refresh(&mut self) {
+        self.next_refresh = self
+            .session
+            .as_ref()
+            .filter(|s| s._grant.refresh_token().is_some())
+            .map(|s| {
+                let life = s._grant.expires_in();
+                Instant::now() + Duration::from_secs(life.saturating_sub(120).max(life / 2).max(1))
+            });
     }
 
     /// Server-side certificate exchange state, independent of peer trust flags.
@@ -282,6 +369,27 @@ impl Account {
         }
     }
 
+    /// Whether this session owns the private key for a cached certificate.
+    pub fn is_local_certificate(&self, id: &[u8; 32]) -> bool {
+        self.private.is_local_certificate(id)
+    }
+
+    /// Issue private signing/ad material to one trusted transfer worker while
+    /// account authorization is current; discovery alone cannot obtain this.
+    pub fn transfer_identity(
+        &mut self,
+    ) -> Result<nearlane_certificates::OwnDeviceIdentity, IdentityError> {
+        if self.status != AccountStatus::Authorized
+            || self
+                .session
+                .as_ref()
+                .is_none_or(|s| Instant::now() >= s.expires_at)
+        {
+            return Err(IdentityError::NoSession);
+        }
+        self.private.transfer_identity()
+    }
+
     /// Publish temporary own-device certificates and obtain a bounded cache from
     /// Google's fixed API. Only an explicit service command starts this operation.
     pub fn prepare_own_devices(&mut self) -> Result<(), IdentityError> {
@@ -293,16 +401,21 @@ impl Account {
             .as_ref()
             .filter(|s| Instant::now() < s.expires_at)
             .ok_or(IdentityError::NoSession)?;
-        self.private.prepare(Arc::clone(&session._grant))
+        self.private
+            .prepare(Arc::clone(&session._grant), &session.registration)
     }
 
     /// Bind a loopback listener and start a worker; the caller opens the returned
     /// URL on the UI thread. No account request is sent until a valid callback.
     pub fn begin(&mut self) -> Result<BrowserAuthorization, LoginError> {
-        if self.busy() || self.session.is_some() {
+        if self.busy() || self.session.is_some() || self.has_saved_login() {
             return Err(LoginError::Busy);
         }
         let config = self.config.clone().ok_or(LoginError::Configuration)?;
+        self.next_restore = None;
+        if let Some(saved) = &mut self.saved {
+            saved.cancel();
+        }
         let (pending, url) =
             PendingLogin::start(config, Duration::from_secs(300), exchange::exchange)?;
         self.session = None;
@@ -323,8 +436,20 @@ impl Account {
                 self.pending = None;
                 match result {
                     Ok(session) => {
+                        if session._grant.refresh_token().is_some() {
+                            let grant = Arc::clone(&session._grant);
+                            if let Ok(saved) = self.ensure_saved() {
+                                saved.save(&grant, &session.registration);
+                            }
+                        } else {
+                            self.saved_status = SavedLoginStatus::MissingRefreshToken;
+                            if let Some(saved) = &mut self.saved {
+                                saved.save(&session._grant, &session.registration);
+                            }
+                        }
                         self.session = Some(session);
                         self.status = AccountStatus::Authorized;
+                        self.schedule_refresh();
                     }
                     Err(error) => self.status = AccountStatus::Failed(error),
                 }
@@ -332,23 +457,97 @@ impl Account {
                 self.status = AccountStatus::Exchanging;
             }
         }
+        if let Some(signal) = self.saved.as_mut().and_then(SavedLogin::poll) {
+            match signal {
+                Signal::Empty => {
+                    if self.session.is_none() {
+                        self.status = AccountStatus::Ready;
+                    }
+                }
+                Signal::Authorized(grant, id) => match Session::new(grant, Some(id)) {
+                    Ok(session) => {
+                        self.session = Some(session);
+                        self.status = AccountStatus::Authorized;
+                        self.next_restore = None;
+                        self.schedule_refresh();
+                    }
+                    Err(error) => self.status = AccountStatus::Failed(error),
+                },
+                Signal::Failed(LoginError::RefreshRejected) => {
+                    self.private
+                        .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
+                    self.session = None;
+                    self.next_refresh = None;
+                    self.next_restore = None;
+                    self.status = AccountStatus::Failed(LoginError::RefreshRejected);
+                }
+                Signal::Failed(error) => {
+                    if self
+                        .session
+                        .as_ref()
+                        .is_some_and(|s| Instant::now() < s.expires_at)
+                    {
+                        self.status = AccountStatus::Authorized;
+                    } else {
+                        self.status = AccountStatus::Failed(error);
+                    }
+                    self.next_refresh = self
+                        .session
+                        .as_ref()
+                        .map(|_| Instant::now() + Duration::from_secs(60));
+                    if self.session.is_none() && error == LoginError::Network {
+                        self.next_restore = Some(Instant::now() + Duration::from_secs(60));
+                    }
+                }
+            }
+        }
+        let refresh_due = self.next_refresh.is_some_and(|time| Instant::now() >= time);
+        if refresh_due && !self.saved.as_ref().is_some_and(SavedLogin::pending) {
+            if let Some(session) = &self.session {
+                let grant = Arc::clone(&session._grant);
+                let id = session.registration.clone();
+                if let Ok(saved) = self.ensure_saved() {
+                    saved.renew(&grant, &id);
+                }
+                self.next_refresh = None;
+            }
+        }
+        if self.next_restore.is_some_and(|time| Instant::now() >= time) && !self.busy() {
+            let _ = self.restore_saved_sign_in();
+        }
         if self
             .session
             .as_ref()
             .is_some_and(|s| Instant::now() >= s.expires_at)
         {
-            self.private
-                .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
-            self.session = None;
-            self.status = AccountStatus::Expired;
+            if self
+                .session
+                .as_ref()
+                .is_some_and(|s| s._grant.refresh_token().is_some())
+            {
+                self.status = if self.saved.as_ref().is_some_and(SavedLogin::busy) {
+                    AccountStatus::Restoring
+                } else {
+                    AccountStatus::Expired
+                };
+            } else {
+                self.private
+                    .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
+                self.session = None;
+                self.status = AccountStatus::Expired;
+            }
         }
-        self.private
-            .poll(self.session.is_some() && self.status == AccountStatus::Authorized);
+        self.private.poll(self.session.is_some());
     }
 
     /// Cancel the attempt and discard its result. An already-sent HTTPS request
     /// may finish within its timeout, but its grant cannot re-enable the session.
     pub fn cancel(&mut self, reason: LoginError) {
+        self.next_refresh = None;
+        self.next_restore = None;
+        if let Some(saved) = &mut self.saved {
+            saved.cancel();
+        }
         self.private
             .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
         self.pending = None;
@@ -370,6 +569,11 @@ impl Account {
     /// Sign out and cancel any pending browser attempt. Provider-wide grant
     /// revocation is separate; Google browser cookies are not accessed.
     pub fn sign_out(&mut self) {
+        self.next_refresh = None;
+        self.next_restore = None;
+        if let Some(saved) = &mut self.saved {
+            saved.forget();
+        }
         self.private
             .sign_out(self.session.as_ref().map(|s| Arc::clone(&s._grant)));
         self.pending = None;
@@ -492,6 +696,10 @@ mod tests {
             session: None,
             status: AccountStatus::WaitingForBrowser,
             private: PrivateSharing::default(),
+            saved: None,
+            saved_status: SavedLoginStatus::NotSaved,
+            next_refresh: None,
+            next_restore: None,
         };
         account.cancel(LoginError::Cancelled);
         std::thread::sleep(Duration::from_millis(50));
@@ -560,9 +768,14 @@ mod tests {
             session: Some(Session {
                 _grant: Arc::new(TokenGrant::from_response(&json).unwrap()),
                 expires_at: Instant::now() - Duration::from_secs(1),
+                registration: "TestDevice".into(),
             }),
             status: AccountStatus::Authorized,
             private: PrivateSharing::default(),
+            saved: None,
+            saved_status: SavedLoginStatus::NotSaved,
+            next_refresh: None,
+            next_restore: None,
         };
         account.poll();
         assert_eq!(account.status(), AccountStatus::Expired);
@@ -581,6 +794,10 @@ mod tests {
             session: None,
             status: AccountStatus::WaitingForBrowser,
             private: PrivateSharing::default(),
+            saved: None,
+            saved_status: SavedLoginStatus::NotSaved,
+            next_refresh: None,
+            next_restore: None,
         };
         account.sign_out();
         std::thread::sleep(Duration::from_millis(50));

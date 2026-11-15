@@ -28,6 +28,13 @@ pub mod ffi {
         #[qproperty(bool, discovery_busy)]
         #[qproperty(bool, discovery_available)]
         #[qproperty(QStringList, own_devices)]
+        #[qproperty(QString, saved_login_status)]
+        #[qproperty(bool, login_remembered)]
+        #[qproperty(bool, login_cancellable)]
+        #[qproperty(QStringList, certificate_rows)]
+        #[qproperty(QString, selected_send_name)]
+        #[qproperty(QString, transfer_status)]
+        #[qproperty(bool, transfer_busy)]
         type Backend = super::BackendRust;
 
         #[qinvokable]
@@ -47,13 +54,21 @@ pub mod ffi {
         #[qinvokable]
         fn cancel_discovery(self: Pin<&mut Backend>);
         #[qinvokable]
+        fn restore_saved_sign_in(self: Pin<&mut Backend>);
+        #[qinvokable]
         fn poll_account(self: Pin<&mut Backend>);
         #[qinvokable]
         fn load_config(self: Pin<&mut Backend>, url: &QUrl);
+        #[qinvokable]
+        fn select_send_file(self: Pin<&mut Backend>, url: &QUrl);
+        #[qinvokable]
+        fn send_selected_file(self: Pin<&mut Backend>, index: i32);
+        #[qinvokable]
+        fn cancel_transfer(self: Pin<&mut Backend>);
     }
 }
 
-use cxx_qt_lib::{QString, QStringList, QUrl};
+use cxx_qt_lib::{DateFormat, QDateTime, QString, QStringList, QTimeZone, QUrl};
 use nearlane_core::Visibility;
 use nearlane_service::{AccountStatus, DiscoveryStatus, LoginError, PrivateStatus, Service};
 use std::pin::Pin;
@@ -72,15 +87,26 @@ pub struct BackendRust {
     discovery_busy: bool,
     discovery_available: bool,
     own_devices: QStringList,
+    saved_login_status: QString,
+    login_remembered: bool,
+    login_cancellable: bool,
+    certificate_rows: QStringList,
+    selected_send_name: QString,
+    transfer_status: QString,
+    transfer_busy: bool,
     service: Service,
 }
 
 impl Default for BackendRust {
     fn default() -> Self {
-        let service = Service::default();
+        let mut service = Service::default();
+        let smoke_test = std::env::var_os("NEARLANE_SMOKE_TEST").is_some();
+        if !smoke_test && service.account_configured() {
+            let _ = service.restore_saved_sign_in();
+        }
         Self {
             status: QString::from(service.status().as_str()),
-            smoke_test: std::env::var_os("NEARLANE_SMOKE_TEST").is_some(),
+            smoke_test,
             account_status: QString::from(service.account_status().message().as_str()),
             account_configured: service.account_configured(),
             account_busy: false,
@@ -91,6 +117,13 @@ impl Default for BackendRust {
             discovery_busy: false,
             discovery_available: false,
             own_devices: QStringList::default(),
+            saved_login_status: QString::from(service.saved_login_status().message().as_str()),
+            login_remembered: service.has_saved_login(),
+            login_cancellable: false,
+            certificate_rows: QStringList::default(),
+            selected_send_name: QString::default(),
+            transfer_status: QString::from(service.transfer_status()),
+            transfer_busy: false,
             service,
         }
     }
@@ -117,6 +150,48 @@ impl ffi::Backend {
             .into_iter()
             .map(QString::from)
             .collect::<QStringList>();
+        let saved = self.rust().service.saved_login_status().message();
+        let remembered = self.rust().service.has_saved_login();
+        let transfer_status = self.rust().service.transfer_status().to_owned();
+        let transfer_busy = self.rust().service.transfer_busy();
+        let selected_send_name = self.rust().service.selected_send_name();
+        let zone = QTimeZone::system_time_zone();
+        let rows = self
+            .rust()
+            .service
+            .certificate_rows()
+            .into_iter()
+            .map(|row| {
+                let date = |secs| {
+                    zone.as_ref()
+                        .map(|z| {
+                            QDateTime::from_secs_since_epoch(secs, z)
+                                .format_enum(DateFormat::ISODate)
+                                .to_string()
+                        })
+                        .unwrap_or_else(|| "Time unavailable".into())
+                };
+                let name = row
+                    .device
+                    .as_deref()
+                    .unwrap_or("Device name encrypted / not discovered");
+                QString::from(
+                    format!(
+                        "Certificate {} - {}\n{}\n{} → {}",
+                        row.number,
+                        if row.active {
+                            "active"
+                        } else {
+                            "outside current validity"
+                        },
+                        name,
+                        date(row.starts_at),
+                        date(row.expires_at)
+                    )
+                    .as_str(),
+                )
+            })
+            .collect::<QStringList>();
         self.as_mut()
             .set_account_status(QString::from(account.message().as_str()));
         self.as_mut().set_account_configured(configured);
@@ -131,7 +206,20 @@ impl ffi::Backend {
         self.as_mut()
             .set_discovery_busy(discovery == DiscoveryStatus::Searching);
         self.as_mut().set_discovery_available(available);
-        self.set_own_devices(devices);
+        self.as_mut().set_own_devices(devices);
+        self.as_mut()
+            .set_saved_login_status(QString::from(saved.as_str()));
+        self.as_mut().set_login_remembered(remembered);
+        self.as_mut().set_login_cancellable(matches!(
+            account,
+            AccountStatus::WaitingForBrowser | AccountStatus::Exchanging | AccountStatus::Restoring
+        ));
+        self.as_mut().set_certificate_rows(rows);
+        self.as_mut()
+            .set_selected_send_name(QString::from(selected_send_name.as_str()));
+        self.as_mut()
+            .set_transfer_status(QString::from(transfer_status.as_str()));
+        self.set_transfer_busy(transfer_busy);
     }
 
     /// Start an explicitly requested login in the system browser; QML never sees the URL.
@@ -200,6 +288,13 @@ impl ffi::Backend {
         self.update_account();
     }
 
+    /// Retry the scoped system-vault flow without a browser or token exposure.
+    pub fn restore_saved_sign_in(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        let _ = self.as_mut().rust_mut().service.restore_saved_sign_in();
+        self.update_account();
+    }
+
     /// Update progress on the GUI thread without doing network IO there.
     pub fn poll_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
@@ -218,6 +313,31 @@ impl ffi::Backend {
                 .load_account_config(std::path::Path::new(&path));
             self.update_account();
         }
+    }
+    /// Native file chooser result; do not log the path or send it to a peer.
+    pub fn select_send_file(mut self: Pin<&mut Self>, url: &QUrl) {
+        use cxx_qt::CxxQtType as _;
+        if let Some(path) = url.to_local_file() {
+            self.as_mut()
+                .rust_mut()
+                .service
+                .select_send_file(std::path::PathBuf::from(path.to_string()));
+        }
+        self.update_account();
+    }
+    /// Explicit recipient action from the current plain-text candidate list.
+    pub fn send_selected_file(mut self: Pin<&mut Self>, index: i32) {
+        use cxx_qt::CxxQtType as _;
+        if let Ok(index) = usize::try_from(index) {
+            self.as_mut().rust_mut().service.send_selected_file(index);
+        }
+        self.update_account();
+    }
+    /// Interrupt the socket and drop any late completion result.
+    pub fn cancel_transfer(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().service.cancel_transfer();
+        self.update_account();
     }
 
     /// Report account support without starting a login or widening visibility.

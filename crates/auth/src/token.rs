@@ -14,6 +14,28 @@ impl TokenRequest {
     /// The fixed provider endpoint; callers cannot redirect secrets elsewhere.
     pub const ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 
+    /// Standard offline-access renewal. Does not require a master token.
+    pub fn refresh(
+        client_id: &str,
+        client_secret: Option<&str>,
+        refresh_token: &str,
+    ) -> Result<Self, AuthError> {
+        if client_id.is_empty() || !valid_token(refresh_token) {
+            return Err(AuthError::InvalidParameters);
+        }
+        let mut form = url::form_urlencoded::Serializer::new(String::new());
+        form.append_pair("grant_type", "refresh_token")
+            .append_pair("client_id", client_id)
+            .append_pair("refresh_token", refresh_token);
+        if let Some(secret) = client_secret {
+            if secret.is_empty() {
+                return Err(AuthError::InvalidParameters);
+            }
+            form.append_pair("client_secret", secret);
+        }
+        Ok(Self(Zeroizing::new(form.finish())))
+    }
+
     /// Prepare a standard PKCE authorization-code exchange with caller-owned ID.
     pub fn exchange(
         client_id: &str,
@@ -74,6 +96,22 @@ impl TokenGrant {
     /// Parse a bounded token response and require an explicitly granted Nearby scope.
     /// The original response is never included in an error or Debug output.
     pub fn from_response(response: &str) -> Result<Self, AuthError> {
+        Self::parse(response, None)
+    }
+
+    /// Parse renewal of a previously validated sharing grant. OAuth refresh may
+    /// omit unchanged scope/refresh token; a supplied conflicting scope fails.
+    pub fn from_refresh_response(
+        response: &str,
+        previous_refresh: &str,
+    ) -> Result<Self, AuthError> {
+        if !valid_token(previous_refresh) {
+            return Err(AuthError::InvalidGrant);
+        }
+        Self::parse(response, Some(previous_refresh))
+    }
+
+    fn parse(response: &str, previous_refresh: Option<&str>) -> Result<Self, AuthError> {
         if response.len() > 64 * 1024 {
             return Err(AuthError::InvalidGrant);
         }
@@ -82,7 +120,11 @@ impl TokenGrant {
         if json.get("error").is_some() || json["token_type"].as_str() != Some("Bearer") {
             return Err(AuthError::InvalidGrant);
         }
-        let scope = json["scope"].as_str().ok_or(AuthError::InvalidGrant)?;
+        let scope = match &json["scope"] {
+            serde_json::Value::Null if previous_refresh.is_some() => NEARBY_SCOPE,
+            serde_json::Value::String(scope) => scope.as_str(),
+            _ => return Err(AuthError::InvalidGrant),
+        };
         let sharing_permission = scope.split_whitespace().any(|s| s == NEARBY_SCOPE);
         if !scope
             .split_whitespace()
@@ -104,7 +146,9 @@ impl TokenGrant {
             return Err(AuthError::InvalidGrant);
         }
         let refresh_token = match json["refresh_token"].take() {
-            serde_json::Value::Null => None,
+            serde_json::Value::Null => {
+                previous_refresh.map(|token| Zeroizing::new(token.to_owned()))
+            }
             serde_json::Value::String(token)
                 if !token.is_empty()
                     && token.len() <= 16 * 1024
@@ -141,6 +185,10 @@ impl TokenGrant {
     }
 }
 
+fn valid_token(token: &str) -> bool {
+    !token.is_empty() && token.len() <= 16 * 1024 && !token.chars().any(char::is_control)
+}
+
 impl fmt::Debug for TokenGrant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TokenGrant")
@@ -154,6 +202,35 @@ impl fmt::Debug for TokenGrant {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renewal_preserves_omitted_values_but_rejects_explicit_scope_loss() {
+        let reply = r#"{"access_token":"renewed","token_type":"Bearer","expires_in":3600}"#;
+        let grant = TokenGrant::from_refresh_response(reply, "synthetic-refresh").unwrap();
+        assert!(grant.has_sharing_permission());
+        assert_eq!(grant.refresh_token(), Some("synthetic-refresh"));
+        assert!(TokenGrant::from_response(reply).is_err());
+        assert!(
+            TokenGrant::from_refresh_response(
+                r#"{"access_token":"x","token_type":"Bearer","expires_in":3600,"scope":"openid"}"#,
+                "synthetic-refresh"
+            )
+            .is_err()
+        );
+        let request = TokenRequest::refresh(
+            "synthetic-client",
+            Some("synthetic-secret"),
+            "synthetic&refresh",
+        )
+        .unwrap();
+        let form: std::collections::BTreeMap<_, _> =
+            url::form_urlencoded::parse(request.expose_form().as_bytes())
+                .into_owned()
+                .collect();
+        assert_eq!(form["grant_type"], "refresh_token");
+        assert_eq!(form["refresh_token"], "synthetic&refresh");
+        assert!(!format!("{request:?}").contains("synthetic"));
+    }
     #[test]
     fn token_form_encodes_secrets_without_parameter_injection() {
         let attempt = crate::AuthorizationAttempt::new(43119).unwrap();

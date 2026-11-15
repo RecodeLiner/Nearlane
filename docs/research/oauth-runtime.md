@@ -45,10 +45,11 @@ The Qt app opens the system browser on an explicit local action, displays saniti
 progress, and keeps account credentials out of QML. Only the exact sharing scope
 can establish AccountStatus::Authorized. SDK-only grants cannot satisfy it.
 
-Bearer grants stay in memory; no keyring persistence, automatic refresh or provider
-revocation exists yet. Session expiry and clearing drop the local grant. A late worker
-result cannot restore a cancelled session. An OAuth grant alone does not enable private
-sharing. Own-device certificate exchange is implemented; Contacts credential
+The initial runtime kept bearer grants only in memory. Saved grants and automatic
+renewal were subsequently implemented; see [saved-login.md](saved-login.md). Access
+tokens remain in memory, and provider-wide revocation is not ordinary sign-out. A late
+worker result cannot restore a cancelled session. An OAuth grant alone does not enable
+private sharing. Own-device certificate exchange is implemented; Contacts credential
 distribution remains unavailable.
 
 Tests use synthetic application parameters and local TCP only, with an injected
@@ -57,11 +58,12 @@ one-use completion, timeout, cancellation during exchange, wrong-scope rejection
 and session expiry. Qt smoke tests additionally bind/cancel a local login without
 opening a browser or contacting Google.
 
-## Remaining decisive checks
+## Validation status
 
-1. Successful browser login is recorded above, without raw account-token
-   inspection or callback/response captures.
-2. Authorized certificate publication/download and cryptographic device trust.
-3. A real private-mode handshake and file exchange against an authorized Android phone.
+1. Browser login and the required Quick Share permission are confirmed. Raw account
+   tokens and callback/response captures are not part of the published record.
+2. Device registration and certificate publication/query are confirmed: 9 records,
+   6 active, no malformed records in the recorded session.
+3. A live private handshake and a 94-byte transfer to Android are confirmed.
 
 Legal and provider-policy limitations: ../LICENSING.md.

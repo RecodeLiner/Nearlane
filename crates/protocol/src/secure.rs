@@ -23,11 +23,34 @@ const MAX_CIPHERTEXT: usize = 192 * 1024;
 /// Maximum decrypted Nearby frame accepted by this adapter.
 pub const MAX_PLAINTEXT: usize = 128 * 1024;
 
+/// Safe connection-prelude checkpoints; no peer data or cryptographic material.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ConnectionStep {
+    /// Writing the initial Nearby request.
+    Request,
+    /// Reading the server's UKEY2 response.
+    ServerHelloRead,
+    /// Validating the server's UKEY2 response.
+    ServerHelloValidation,
+    /// Writing the client's UKEY2 completion.
+    ClientFinish,
+    /// Deriving the encrypted transport context.
+    KeyDerivation,
+    /// Writing transport acceptance.
+    AcceptanceWrite,
+    /// Reading transport acceptance.
+    AcceptanceRead,
+    /// Peer acceptance or required protocol features were not valid.
+    AcceptanceValidation,
+}
+
 /// Sanitized transport failures; never contains plaintext, keys or peer messages.
 #[derive(Debug)]
 pub enum ChannelError {
     /// Stream IO failed.
     Io(io::Error),
+    /// A sanitized pre-encryption checkpoint failed.
+    Prelude(ConnectionStep),
     /// A UKEY2 handshake message was invalid or out of order.
     Handshake,
     /// The encrypted message failed integrity/sequence checks.
@@ -39,8 +62,12 @@ pub enum ChannelError {
 }
 impl fmt::Display for ChannelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Self::Prelude(step) = self {
+            return write!(f, "Nearby prelude failed at {step:?}");
+        }
         f.write_str(match self {
             Self::Io(_) => "Nearby stream IO failed",
+            Self::Prelude(_) => unreachable!(),
             Self::Handshake => "UKEY2 handshake rejected",
             Self::Authentication => "Nearby message integrity or sequence check failed",
             Self::Size => "Nearby frame exceeds the stage limit",
@@ -61,6 +88,7 @@ pub struct SecureChannel<S> {
     context: D2DConnectionContextV1,
     authentication: Zeroizing<Vec<u8>>,
     poisoned: bool,
+    remote_safe_version: i32,
 }
 
 impl<S> fmt::Debug for SecureChannel<S> {
@@ -72,6 +100,60 @@ impl<S> fmt::Debug for SecureChannel<S> {
 }
 
 impl<S: Read + Write> SecureChannel<S> {
+    /// Full initiating Nearby transport prelude: plain request, UKEY2, then
+    /// mutual plain acceptance before encrypted paired-key/application traffic.
+    pub fn initiate_nearby(mut stream: S, request: &[u8]) -> Result<Self, ChannelError> {
+        write_frame(&mut stream, request)
+            .and_then(|_| stream.flush())
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::Request))?;
+        let mut channel = Self::initiate(stream)?;
+        channel.accept_nearby()?;
+        Ok(channel)
+    }
+    /// Receiving prelude for the process-owned compatibility test peer.
+    pub fn respond_nearby(mut stream: S) -> Result<(Self, Vec<u8>), ChannelError> {
+        let bytes = read_frame_bounded(&mut stream, 4096)?;
+        let info = crate::connection::request_info(&bytes).map_err(|_| ChannelError::Handshake)?;
+        let mut channel = Self::respond(stream)?;
+        channel.accept_nearby()?;
+        Ok((channel, info))
+    }
+    fn accept_nearby(&mut self) -> Result<(), ChannelError> {
+        write_frame(&mut self.stream, &crate::connection::acceptance())
+            .and_then(|_| self.stream.flush())
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::AcceptanceWrite))?;
+        for _ in 0..16 {
+            let bytes = read_frame_bounded(&mut self.stream, 4096)
+                .map_err(|_| ChannelError::Prelude(ConnectionStep::AcceptanceRead))?;
+            if let Ok(version) = crate::connection::require_acceptance(&bytes) {
+                self.remote_safe_version = version;
+                return Ok(());
+            }
+            match crate::connection::control(&bytes) {
+                Ok(crate::connection::Control::KeepAlive { ack, sequence }) => {
+                    if !ack {
+                        write_frame(
+                            &mut self.stream,
+                            &crate::connection::keep_alive(true, sequence),
+                        )?;
+                        self.stream.flush()?;
+                    }
+                }
+                _ => return Err(ChannelError::Prelude(ConnectionStep::AcceptanceValidation)),
+            }
+        }
+        Err(ChannelError::Prelude(ConnectionStep::AcceptanceValidation))
+    }
+    /// Socket readiness/deadline access only. Never read or write outside the
+    /// encrypted methods after the connection prelude.
+    pub fn io_ref(&self) -> &S {
+        &self.stream
+    }
+    /// Whether mutual feature negotiation allows received-payload ACK frames.
+    /// A legacy peer may still accept files; socket writes are not receipts.
+    pub fn supports_payload_ack(&self) -> bool {
+        self.remote_safe_version >= 6
+    }
     /// Perform the initiating side of the three-message UKEY2 handshake.
     /// The caller must set IO deadlines on network streams before this call.
     pub fn initiate(mut stream: S) -> Result<Self, ChannelError> {
@@ -80,12 +162,15 @@ impl<S: Read + Write> SecureChannel<S> {
             vec![NextProtocol::Aes256CbcHmacSha256],
         );
         send_handshake(&mut stream, &handshake)?;
-        let response = read_frame_bounded(&mut stream, MAX_HANDSHAKE)?;
+        let response = read_frame_bounded(&mut stream, MAX_HANDSHAKE)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ServerHelloRead))?;
         handshake
             .handle_handshake_message(&response)
-            .map_err(|_| ChannelError::Handshake)?;
-        send_handshake(&mut stream, &handshake)?;
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ServerHelloValidation))?;
+        send_handshake(&mut stream, &handshake)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::ClientFinish))?;
         Self::complete(stream, &mut handshake)
+            .map_err(|_| ChannelError::Prelude(ConnectionStep::KeyDerivation))
     }
 
     /// Perform the receiving side, retaining no partially completed handshake.
@@ -123,6 +208,7 @@ impl<S: Read + Write> SecureChannel<S> {
             context,
             authentication,
             poisoned: false,
+            remote_safe_version: 0,
         })
     }
 
@@ -138,7 +224,8 @@ impl<S: Read + Write> SecureChannel<S> {
         bool::from(self.authentication.as_slice().ct_eq(expected))
     }
 
-    /// Encrypt one Nearby frame. Call only after the relevant trust/consent gate.
+    /// Encrypt one Nearby frame. Authentication control frames precede trust;
+    /// file introductions/content require the relevant trust and consent gates.
     pub fn send(&mut self, plaintext: &[u8]) -> Result<(), ChannelError> {
         if self.poisoned {
             return Err(ChannelError::Poisoned);
@@ -228,6 +315,40 @@ mod tests {
             SecureChannel::initiate(stream).unwrap(),
             server.join().unwrap(),
         )
+    }
+
+    #[test]
+    fn legacy_transport_acceptance_keeps_encryption_without_claiming_payload_ack() {
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let request = read_frame_bounded(&mut stream, 4096).unwrap();
+            crate::connection::request_info(&request).unwrap();
+            let mut channel = SecureChannel::respond(stream).unwrap();
+            let mut response = crate::connection::acceptance();
+            // Public wire fixture: final field 7 is safe-disconnect version.
+            assert_eq!(response.pop(), Some(6));
+            response.push(4);
+            write_frame(&mut channel.stream, &response).unwrap();
+            let request = read_frame_bounded(&mut channel.stream, 4096).unwrap();
+            assert_eq!(crate::connection::require_acceptance(&request).unwrap(), 6);
+            channel.send(b"legacy encrypted traffic").unwrap();
+            assert_eq!(channel.receive().unwrap(), b"still encrypted");
+        });
+        let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let request = crate::connection::request(b"TEST", &[0x10; 17], 7).unwrap();
+        let mut channel = SecureChannel::initiate_nearby(stream, &request).unwrap();
+        assert!(!channel.supports_payload_ack());
+        assert_eq!(channel.receive().unwrap(), b"legacy encrypted traffic");
+        channel.send(b"still encrypted").unwrap();
+        server.join().unwrap();
     }
 
     #[test]

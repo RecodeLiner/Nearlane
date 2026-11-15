@@ -1,4 +1,6 @@
-//! Offline diagnostics; this binary neither logs in nor sends requests to Google.
+//! Offline diagnostics and explicit own-device sending with an existing saved login.
+
+mod send;
 
 use std::{
     error::Error,
@@ -28,6 +30,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                 "Owned loopback peers only. Android, real account peer verification and private discovery are not tested."
             );
         }
+        Some("send-own") => send::run(std::env::args_os().skip(2))?,
         Some("inspect-auth-url") => {
             // Read from stdin so a captured authorization URL need not be put
             // in shell history or exposed as a command-line argument.
@@ -45,7 +48,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             println!("Redirect kind: {}", summary.redirect_kind);
         }
         _ => println!(
-            "Nearlane research CLI\n\n  nearlane status\n  nearlane inspect-auth-url  < URL-on-stdin\n  nearlane test-transfer\n\nPrivate discovery and Android transfers are not enabled yet."
+            "Nearlane research CLI\n\n  nearlane status\n  nearlane inspect-auth-url  < URL-on-stdin\n  nearlane test-transfer\n  nearlane send-own --device EXACT_NAME FILE\n\nOnly send-own uses the network and this app's saved login. It never starts browser authorization or enables public visibility. Close the desktop app before using send-own."
         ),
     }
     Ok(())
