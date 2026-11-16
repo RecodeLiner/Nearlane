@@ -358,6 +358,7 @@ ApplicationWindow {
         backendModel.discovery_available = backendModel.account_authorized;
         backendModel.selected_send_name = preview.fileName || "";
         backendModel.receive_directory = "/home/demo/Downloads/Nearlane";
+        backendModel.config_path = "/home/demo/.config/nearlane/oauth-client.json";
         backendModel.own_devices = preview.devices || [];
         sendPage.selectedDevice = backendModel.own_devices.length > 0 ? 0 : -1;
         backendModel.discovery_busy = preview.scene === "loading";
@@ -416,6 +417,8 @@ ApplicationWindow {
         }
     }
     function capturePreview() {
+        if (preview.showAccount)
+            settingsPage.showAccount();
         if (preview.scrollBottom) {
             const view = [sendPage, receivePage, settingsPage][destination];
             view.contentItem.contentY = Math.max(0, view.contentItem.contentHeight - view.availableHeight);

@@ -1587,6 +1587,7 @@ dependencies = [
 name = "nearlane-account"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "nearlane-auth",
  "nearlane-certificates",
  "nearlane-core",
@@ -1595,6 +1596,7 @@ dependencies = [
  "rand 0.8.8",
  "reqwest",
  "serde_json",
+ "tempfile",
  "tokio",
  "tonic",
  "tonic-prost",
@@ -1708,6 +1710,7 @@ dependencies = [
  "nearlane-discovery",
  "nearlane-platform",
  "nearlane-transfer",
+ "tempfile",
 ]
 
 [[package]]

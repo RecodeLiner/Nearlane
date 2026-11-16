@@ -10,6 +10,8 @@ import tempfile
 
 
 CASES = {
+    "settings-account": dict(width=1040, height=900, dark=False, page=2, scene="signed-out", showAccount=True),
+    "settings-account-compact": dict(width=540, height=760, dark=True, page=2, scene="signed-out", showAccount=True),
     "language-switch": dict(width=1040, height=900, dark=False, page=2, scene="ready", exerciseLocalization=True),
     "send-light": dict(width=1040, height=760, dark=False, page=0, scene="ready"),
     "send-dark": dict(width=1040, height=760, dark=True, page=0, scene="ready"),

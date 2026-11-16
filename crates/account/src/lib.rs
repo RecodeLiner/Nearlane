@@ -34,6 +34,8 @@ use saved::{SavedLogin, Signal};
 pub enum LoginError {
     /// Missing, malformed or insufficiently private local configuration.
     Configuration,
+    /// Validated application parameters could not be saved outside the package.
+    ConfigurationStorage,
     /// Could not bind or use the IPv4 loopback listener.
     Listener,
     /// Secure entropy or callback validation failed.
@@ -66,6 +68,9 @@ impl LoginError {
     /// Deferred, sanitized explanation for a localized presentation layer.
     pub fn text(&self) -> Text {
         match self {
+            Self::ConfigurationStorage => {
+                Text::new("Could not save sign-in configuration in the local application folder.")
+            }
             Self::Configuration => {
                 Text::new("Local sign-in configuration is missing, invalid, or not private.")
             }
@@ -282,7 +287,18 @@ impl fmt::Debug for Account {
 impl Account {
     /// Load only application parameters. Never reads browser profiles or account cookies.
     pub fn from_local_config(path: &Path) -> Self {
-        let config = ClientConfig::load(path).ok();
+        Self::with_config(ClientConfig::load(path).ok())
+    }
+    /// Offline state when no usable per-account configuration path is available.
+    pub fn unconfigured() -> Self {
+        Self::with_config(None)
+    }
+    /// Use a validated, locally imported configuration without reopening its file.
+    pub fn from_client_config(config: ClientConfig) -> Self {
+        Self::with_config(Some(config))
+    }
+
+    fn with_config(config: Option<ClientConfig>) -> Self {
         let status = if config.is_some() {
             AccountStatus::Ready
         } else {

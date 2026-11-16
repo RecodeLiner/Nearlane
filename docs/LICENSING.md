@@ -30,7 +30,7 @@ see NOTICE for acknowledgment.
 | Nearby Identity wire adapters | Original small adapters recording interface facts from the locally examined binary; proprietary descriptors/source are not incorporated. This does not establish permission to use the service |
 | rquickshare / Packet | GPL-3.0 family; not incorporated. Copying implementation requires revisiting the licensing of the combined work |
 | Google Quick Share EXE/MSI/resources | Proprietary; downloaded only into ignored work/ for local examination; do not redistribute or embed |
-| Local desktop OAuth configuration | Local-only import into ignored work/private/ is explicitly authorized; never compiled or distributed. Application-identity/API authorization is separate from the license of Nearlane's original code |
+| Local desktop OAuth configuration | Local-only import into private runtime configuration is explicitly authorized; never compiled or distributed. Application-identity/API authorization is separate from the license of Nearlane's original code |
 
 MIT/Apache licensing the application does not remove LGPL obligations for Qt.
 Before publishing binaries, inventory the exact Qt modules/plugins and transitive

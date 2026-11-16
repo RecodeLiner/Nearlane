@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 
+from import_google_oauth import default_output
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -16,6 +18,7 @@ def main():
     parser.add_argument("--kde", action="store_true", help="also check the KDE desktop style")
     parser.add_argument("--native", action="store_true", help="briefly show a window on the desktop")
     parser.add_argument("--tray", action="store_true", help="check native tray close/show and request a test notification")
+    parser.add_argument("--config-import", action="store_true", help="check local JSON import and a second launch after deleting the source")
     args = parser.parse_args()
     if args.tray and not args.native:
         parser.error("--tray requires --native")
@@ -28,7 +31,8 @@ def main():
 
 
 def check(binary, args, config, settings):
-    for index, style in enumerate([None, "org.kde.desktop"] if args.kde else [None]):
+    styles = [None, "org.kde.desktop"] if args.kde else ([None, None] if args.config_import else [None])
+    for index, style in enumerate(styles):
         env = os.environ.copy()
         env.update(
             NEARLANE_SMOKE_TEST="1",
@@ -39,6 +43,24 @@ def check(binary, args, config, settings):
             NEARLANE_PREFERENCES_SMOKE_DIR=str(settings),
             NEARLANE_PREFERENCES_SMOKE_TEST="write" if index == 0 else "read",
         )
+        if args.config_import:
+            env.pop("NEARLANE_OAUTH_CONFIG", None)
+            env.update(
+                XDG_CONFIG_HOME=str(config.parent / "runtime-config"),
+                HOME=str(config.parent / "home"),
+                APPDATA=str(config.parent / "appdata"),
+                NEARLANE_CONFIG_SMOKE_PHASE="write" if index == 0 else "read",
+                NEARLANE_CONFIG_SMOKE_SOURCE=str(config),
+            )
+            Path(env["HOME"]).mkdir(exist_ok=True)
+            if index == 1:
+                config.unlink()
+            cwd = config.parent / f"launch-{index}"
+            cwd.mkdir(exist_ok=True)
+        else:
+            env.pop("NEARLANE_CONFIG_SMOKE_PHASE", None)
+            env.pop("NEARLANE_CONFIG_SMOKE_SOURCE", None)
+            cwd = None
         if not args.native:
             env["QT_QPA_PLATFORM"] = "offscreen"
         if args.tray:
@@ -49,7 +71,7 @@ def check(binary, args, config, settings):
             env.update(QT_QUICK_CONTROLS_STYLE=style, QT_QPA_PLATFORMTHEME="kde")
         try:
             result = subprocess.run(
-                [str(binary)], env=env, capture_output=True, text=True, timeout=15
+                [str(binary)], env=env, cwd=cwd, capture_output=True, text=True, timeout=15
             )
         except subprocess.TimeoutExpired:
             print(f"FAIL ({style or 'session style'}): startup timed out", file=sys.stderr)
@@ -65,6 +87,7 @@ def check(binary, args, config, settings):
             or "smoke: local sign-in cancelled; device remains hidden" not in output
             or "smoke: signed out; device remains hidden" not in output
             or "smoke: receiving preferences persisted; synthetic settings only" not in output
+            or (args.config_import and "smoke: persistent configuration loaded; synthetic settings only" not in output)
             or (args.tray and "smoke: tray close/show and notification checked" not in output)
             or any(error in output for error in errors)
         ):
@@ -73,6 +96,14 @@ def check(binary, args, config, settings):
             return 1
         print(f"PASS ({style or 'session style'}): QML loaded, local login cancelled, device hidden")
         print("PASS: private receiving defaults and saved settings (isolated from personal preferences)")
+        if args.config_import:
+            destination = default_output(env)
+            saved = json.loads(destination.read_text())
+            if saved.get("client_id") != "synthetic-smoke-client":
+                raise RuntimeError("Synthetic configuration was not persisted")
+            if os.name == "posix" and destination.stat().st_mode & 0o777 != 0o600:
+                raise RuntimeError("Configuration permissions are not private")
+            print("PASS: configuration import/restart, independent working directories and removed source")
         if args.tray:
             print("PASS: native tray available, close hides, show restores, notification requested")
     return 0

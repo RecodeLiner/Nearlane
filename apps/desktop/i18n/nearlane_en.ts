@@ -180,6 +180,10 @@
       <translation>Could not save settings. These changes apply only until the app closes.</translation>
     </message>
     <message>
+      <source>Could not save sign-in configuration in the local application folder.</source>
+      <translation>Could not save sign-in configuration in the local application folder.</translation>
+    </message>
+    <message>
       <source>Could not save the file without replacing an existing file. Choose a writable destination.</source>
       <translation>Could not save the file without replacing an existing file. Choose a writable destination.</translation>
     </message>
@@ -456,6 +460,10 @@
       <translation>Sign-in cancelled.</translation>
     </message>
     <message>
+      <source>Sign-in configuration saved. It will be loaded automatically on the next start.</source>
+      <translation>Sign-in configuration saved. It will be loaded automatically on the next start.</translation>
+    </message>
+    <message>
       <source>Sign-in is remembered in the system credential store. Access renews automatically.</source>
       <translation>Sign-in is remembered in the system credential store. Access renews automatically.</translation>
     </message>
@@ -679,6 +687,10 @@
       <translation>Choose sign-in configuration</translation>
     </message>
     <message>
+      <source>Configuration file: %1</source>
+      <translation>Configuration file: %1</translation>
+    </message>
+    <message>
       <source>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</source>
       <translation>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</translation>
     </message>
@@ -897,6 +909,10 @@
     <message>
       <source>Select a device to send to</source>
       <translation>Select a device to send to</translation>
+    </message>
+    <message>
+      <source>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</source>
+      <translation>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</translation>
     </message>
     <message>
       <source>Send</source>

@@ -180,6 +180,10 @@
       <translation>Не удалось сохранить настройки. Изменения действуют только до закрытия приложения.</translation>
     </message>
     <message>
+      <source>Could not save sign-in configuration in the local application folder.</source>
+      <translation>Не удалось сохранить конфигурацию входа в локальную папку приложения.</translation>
+    </message>
+    <message>
       <source>Could not save the file without replacing an existing file. Choose a writable destination.</source>
       <translation>Не удалось сохранить файл без перезаписи существующего. Выберите папку с доступом на запись.</translation>
     </message>
@@ -456,6 +460,10 @@
       <translation>Вход отменён.</translation>
     </message>
     <message>
+      <source>Sign-in configuration saved. It will be loaded automatically on the next start.</source>
+      <translation>Конфигурация входа сохранена. При следующем запуске она загрузится автоматически.</translation>
+    </message>
+    <message>
       <source>Sign-in is remembered in the system credential store. Access renews automatically.</source>
       <translation>Вход сохранён в системном хранилище учётных данных. Доступ обновляется автоматически.</translation>
     </message>
@@ -679,6 +687,10 @@
       <translation>Выбрать конфигурацию входа</translation>
     </message>
     <message>
+      <source>Configuration file: %1</source>
+      <translation>Файл конфигурации: %1</translation>
+    </message>
+    <message>
       <source>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</source>
       <translation>Подключите устройства к одной сети. В Quick Share на телефоне выберите видимость «Ваши устройства».</translation>
     </message>
@@ -897,6 +909,10 @@
     <message>
       <source>Select a device to send to</source>
       <translation>Выбрать устройство для отправки</translation>
+    </message>
+    <message>
+      <source>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</source>
+      <translation>Выберите локальный JSON-файл OAuth. Параметры приложения будут сохранены с закрытым доступом для следующих запусков.</translation>
     </message>
     <message>
       <source>Send</source>

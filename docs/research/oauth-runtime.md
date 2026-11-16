@@ -17,8 +17,9 @@ treating them as paired application parameters, rather than account credentials.
 They do not establish any third-party permission to use that application identity.
 
 The original importer accepts only the exact previously recorded SHA-256 and
-size. It writes exclusively to work/private/oauth-client.json with 0600 mode
-inside a 0700 directory, refuses an existing output, and prints no values.
+size. The initial tool wrote to ignored work/private/. The packaged importer now writes
+to the private runtime application directory, refuses an existing output, and
+prints no values. Unix files use 0600 and newly created application directories 0700.
 No proprietary implementation code was incorporated into Nearlane.
 
 ## Unauthenticated endpoint check

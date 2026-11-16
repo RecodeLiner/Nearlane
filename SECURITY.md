@@ -49,8 +49,8 @@ never changes another device's resource or revokes the shared OAuth project.
 
 Local-only examination/reuse of the official desktop application configuration is
 explicitly authorized for this research. Only the previously hashed artifact is accepted
-by the importer. Its output stays in ignored work/private/ (directory 0700, file 0600),
-outside Nix sources/resources. This is an interoperability experiment, not a claim of
+by the importer. Its output is a private runtime application JSON outside Git/Nix outputs
+(Unix directory 0700, file 0600). This is an interoperability experiment, not a claim of
 provider authorization. Never distribute this local configuration.
 
 The core must stay hidden when an authentication feature is unavailable. A
@@ -208,3 +208,22 @@ multi-file transactions and production consent/space-management are not ready.
 
 Never upload account tokens or full traffic captures to public issues. This
 repository has no public remote or private reporting channel configured yet.
+
+## Runtime application configuration
+
+The packaged desktop and CLI resolve application parameters at runtime, not from
+the repository or current working directory. Linux uses XDG_CONFIG_HOME/nearlane
+(or HOME/.config/nearlane); macOS uses HOME/Library/Application Support/Nearlane;
+Windows uses APPDATA/Nearlane. An explicit NEARLANE_OAUTH_CONFIG must be absolute;
+an invalid override does not fall back to another identity. No build expression
+contains imported values, and the Nix package includes only the importer code.
+
+UI import validates a bounded local JSON before writing, keeps only application
+parameters and the fixed scope, and atomically replaces the destination using a
+private same-directory temporary file. Invalid input or persistence failure leaves
+the previous account configuration intact. The source file remains untouched.
+Destination symlinks, writable-by-others directories and paths resolving into the
+Nix store are rejected. Unix reads reject non-regular files without blocking.
+Other opaque desktop JSON fields are not persisted; account tokens remain in the
+OS credential store. Changing identity while authorized or busy is refused.
+The CLI importer publishes exclusively and never replaces an existing file.

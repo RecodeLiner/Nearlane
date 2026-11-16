@@ -4,6 +4,30 @@ Local environment: NixOS x86_64, locked nixpkgs
 `d4f25a3e562008648d45bcf2d70bcc7422cad84e`, Rust 1.99.1, Qt 6.12.0.
 Rust 1.85 is the declared minimum; it has not been tested locally.
 
+## Installed configuration update
+
+- Application configuration now resolves to an absolute per-profile runtime path.
+  Linux honors XDG_CONFIG_HOME (HOME/.config fallback), macOS uses Application
+  Support, and Windows uses APPDATA. An explicit NEARLANE_OAUTH_CONFIG must be
+  absolute; cwd/repository fallback has been removed.
+- Explicit GUI import validates and normalizes a selected JSON, then atomically
+  installs a private copy. A second process successfully loaded it from another
+  working directory after the original source was deleted. Both session-style
+  and KDE-style offscreen smoke passed with temporary configuration/settings,
+  no account-token restoration, network authorization or Bluetooth activity.
+- All 110 regular workspace tests and strict non-UI all-target Clippy passed.
+  New tests cover path overrides, XDG fallback, source removal, private Unix
+  permissions, safe replacement, malformed input, unknown fields and refusal of
+  destination symlinks/Nix-store paths. All 9 Python tool tests passed.
+- Both catalogs now contain 254 messages. Five updated account/settings previews
+  passed in Russian/English at desktop and compact sizes; representative captures
+  were visually inspected. Test windows were not shown on the desktop.
+- The flake packages the original local importer as nearlane-import-google-oauth;
+  it resolves the same runtime destination and never overwrites an existing file.
+  No real Google configuration was imported/copied during these checks.
+- Windows/macOS path rules have synthetic tests, but native filesystem permissions
+  and application execution on those platforms remain untested locally.
+
 ## Hardware verification
 
 - A 94-byte file was sent privately to a real Android phone, saved and opened.
@@ -78,7 +102,7 @@ Material desktop redesign:
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 104 tests pass on Linux,
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 110 tests pass on Linux,
   including local OAuth callbacks, sign-out, encrypted file streaming,
   tampering/replay, size/offset/path checks and non-overwrite behavior, plus
   public Google certificate crypto vectors, own-device-only publication,

@@ -22,7 +22,7 @@
           cargoLock.lockFile = ./Cargo.lock;
           cargoBuildFlags = [ "-p" "nearlane-desktop" "-p" "nearlane-cli" ];
           cargoTestFlags = [ "--workspace" "--exclude" "nearlane-desktop" ];
-          nativeBuildInputs = [ pkgs.pkg-config pkgs.lld pkgs.qt6.qttools pkgs.qt6.wrapQtAppsHook ]
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.lld pkgs.makeWrapper pkgs.qt6.qttools pkgs.qt6.wrapQtAppsHook ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
           buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.qt6.qtconnectivity pkgs.stdenv.cc.cc.lib ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.kdePackages.kirigami ];
@@ -36,6 +36,9 @@
             qtWrapperArgs+=(--prefix QML_IMPORT_PATH : "${pkgs.kdePackages.kirigami.unwrapped}/${pkgs.qt6.qtbase.qtQmlPrefix}")
           '';
           postInstall = ''
+            install -Dm644 tools/import_google_oauth.py "$out/libexec/nearlane/import-google-oauth.py"
+            makeWrapper "${pkgs.python3}/bin/python3" "$out/bin/nearlane-import-google-oauth" \
+              --add-flags "$out/libexec/nearlane/import-google-oauth.py"
             install -Dm644 packaging/org.nearlane.Nearlane.desktop "$out/share/applications/org.nearlane.Nearlane.desktop"
             install -Dm644 LICENSE-MIT "$out/share/licenses/nearlane/LICENSE-MIT"
             install -Dm644 LICENSE-APACHE "$out/share/licenses/nearlane/LICENSE-APACHE"

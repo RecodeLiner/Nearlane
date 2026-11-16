@@ -59,6 +59,9 @@ pub mod ffi {
         #[qproperty(QString, design_preview)]
         #[qproperty(QString, account_status)]
         #[qproperty(bool, account_configured)]
+        #[qproperty(QString, config_path)]
+        #[qproperty(QString, config_status)]
+        #[qproperty(bool, config_error)]
         #[qproperty(bool, account_busy)]
         #[qproperty(bool, account_authorized)]
         #[qproperty(QString, private_status)]
@@ -156,6 +159,10 @@ pub struct BackendRust {
     design_preview: QString,
     account_status: QString,
     account_configured: bool,
+    config_path: QString,
+    config_status: QString,
+    config_error: bool,
+    config_result: Option<Result<(), LoginError>>,
     account_busy: bool,
     account_authorized: bool,
     private_status: QString,
@@ -227,6 +234,14 @@ impl Default for BackendRust {
             ),
             account_status: text(&service.account_status().text()),
             account_configured: service.account_configured(),
+            config_path: QString::from(
+                nearlane_platform::configuration::oauth_config_path()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+            ),
+            config_status: QString::default(),
+            config_error: false,
+            config_result: None,
             account_busy: false,
             account_authorized: false,
             private_status: text(&service.private_status().text()),
@@ -266,6 +281,19 @@ impl Default for BackendRust {
 impl ffi::Backend {
     fn update_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        let config_status = match self.rust().config_result {
+            None => QString::default(),
+            Some(Ok(())) => tr(
+                "Sign-in configuration saved. It will be loaded automatically on the next start.",
+            ),
+            Some(Err(error)) => text(&error.text()),
+        };
+        let config_error = self
+            .rust()
+            .config_result
+            .is_some_and(|result| result.is_err());
+        self.as_mut().set_config_status(config_status);
+        self.as_mut().set_config_error(config_error);
         let bluetooth_status = {
             let mut state = self.as_mut().rust_mut();
             let enabled = !state.smoke_test;
@@ -492,15 +520,20 @@ impl ffi::Backend {
         self.update_account();
     }
 
-    /// Read only a file selected through the local file dialog.
+    /// Validate and privately import only an explicitly selected local JSON file.
     pub fn load_config(mut self: Pin<&mut Self>, url: &QUrl) {
         use cxx_qt::CxxQtType as _;
         if let Some(path) = url.to_local_file() {
             let path = path.to_string();
-            self.as_mut()
+            let result = self
+                .as_mut()
                 .rust_mut()
                 .service
-                .load_account_config(std::path::Path::new(&path));
+                .import_account_config(std::path::Path::new(&path));
+            self.as_mut().rust_mut().config_result = Some(result);
+            if result.is_ok() && !self.rust().smoke_test {
+                let _ = self.as_mut().rust_mut().service.restore_saved_sign_in();
+            }
             self.update_account();
         }
     }
@@ -660,6 +693,21 @@ impl ffi::Backend {
 
     fn smoke_account_check(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        if let Ok(phase) = std::env::var("NEARLANE_CONFIG_SMOKE_PHASE") {
+            if phase == "write" {
+                assert!(!self.rust().service.account_configured());
+                let source = std::env::var("NEARLANE_CONFIG_SMOKE_SOURCE").unwrap_or_default();
+                assert!(!source.is_empty());
+                self.as_mut()
+                    .load_config(&QUrl::from_local_file(&QString::from(source)));
+                assert!(!self.rust().config_error);
+            } else {
+                assert_eq!(phase, "read");
+            }
+            assert!(self.rust().service.account_configured());
+            assert_eq!(self.rust().service.account_status(), AccountStatus::Ready);
+            eprintln!("smoke: persistent configuration loaded; synthetic settings only");
+        }
         if let Ok(phase) = std::env::var("NEARLANE_PREFERENCES_SMOKE_TEST") {
             if phase == "write" {
                 assert!(ffi::change_language(&QString::from("ru")));

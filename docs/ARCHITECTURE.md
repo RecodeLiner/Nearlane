@@ -132,3 +132,16 @@ with translated labels, preserving the service offer ID and consent gate.
 Platform notification action keys remain random and independent of labels.
 Native OS dialogs may follow the OS language; Qt-owned dialogs use available Qt
 module translations. macOS usage descriptions have en/ru InfoPlist.strings.
+
+## Installed configuration lifecycle
+
+nearlane-platform::configuration resolves a per-account runtime path independently
+of Qt and cwd, with an absolute NEARLANE_OAUTH_CONFIG override. Account configuration
+loading stays offline. Explicit UI import validates then atomically installs a
+normalized JSON in that location and replaces service state only after success.
+The next process loads that copy before saved-login restoration, so the source
+JSON can be moved/deleted without losing the selected application identity.
+The refresh grant remains in the OS vault under the same client-ID-derived entry.
+The Nix package installs a credential-free nearlane-import-google-oauth command;
+its default destination follows the same platform path policy. No source-tree
+fallback or implicit migration reads arbitrary credentials from the launch folder.

@@ -35,13 +35,13 @@ pub struct Service {
 
 impl Default for Service {
     fn default() -> Self {
-        let path = std::env::var_os("NEARLANE_OAUTH_CONFIG")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| std::path::PathBuf::from("work/private/oauth-client.json"));
+        let account = nearlane_platform::configuration::oauth_config_path()
+            .map(|path| Account::from_local_config(&path))
+            .unwrap_or_else(Account::unconfigured);
         Self {
             visibility: Visibility::Hidden,
             capabilities: Capabilities::default(),
-            account: Account::from_local_config(&path),
+            account,
             private_setup_started: false,
             discovery: Discovery::default(),
             transfers: Transfers::default(),
@@ -79,6 +79,31 @@ impl Service {
         self.receiving.reset();
         self.discovery.reset();
         self.private_setup_started = false;
+    }
+
+    /// Persist an explicitly chosen JSON in the runtime configuration directory.
+    /// Existing trust remains untouched if parsing or persistence fails.
+    pub fn import_account_config(&mut self, source: &std::path::Path) -> Result<(), LoginError> {
+        if self.account.busy() || self.account.status() == AccountStatus::Authorized {
+            return Err(LoginError::Busy);
+        }
+        let destination = nearlane_platform::configuration::oauth_config_path()
+            .ok_or(LoginError::ConfigurationStorage)?;
+        self.import_config_to(source, &destination)
+    }
+    fn import_config_to(
+        &mut self,
+        source: &std::path::Path,
+        destination: &std::path::Path,
+    ) -> Result<(), LoginError> {
+        let config = nearlane_account::ClientConfig::import(source, destination)?;
+        self.account = Account::from_client_config(config);
+        self.pending_send = None;
+        self.transfers.reset();
+        self.receiving.reset();
+        self.discovery.reset();
+        self.private_setup_started = false;
+        Ok(())
     }
 
     /// Start a browser login without changing discovery or sharing permissions.
@@ -652,6 +677,29 @@ impl Service {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn configuration_import_is_persistent_without_enabling_visibility_or_losing_a_valid_config_on_error()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("selected.json");
+        let destination = root.path().join("private/nearlane/oauth-client.json");
+        std::fs::write(&source, br#"{"client_id":"synthetic-import"}"#).unwrap();
+        let mut service = Service::default();
+        service.import_config_to(&source, &destination).unwrap();
+        assert!(service.account_configured());
+        assert_eq!(service.account_status(), AccountStatus::Ready);
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        let saved = std::fs::read(&destination).unwrap();
+        std::fs::write(&source, b"{}").unwrap();
+        assert_eq!(
+            service.import_config_to(&source, &destination),
+            Err(LoginError::Configuration)
+        );
+        assert!(service.account_configured());
+        assert_eq!(service.account_status(), AccountStatus::Ready);
+        assert_eq!(std::fs::read(&destination).unwrap(), saved);
+        assert_eq!(service.visibility(), Visibility::Hidden);
+    }
     #[test]
     fn background_receive_policy_survives_logout_but_never_opens_without_identity() {
         let mut service = Service::default();

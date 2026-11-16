@@ -17,8 +17,9 @@
   and preserve licenses/NOTICE for any licensed source incorporated later.
 - Local-only examination and reuse of the desktop OAuth configuration from the
   downloaded official Google binary is explicitly authorized for personal
-  interoperability research. Keep it exclusively in ignored work/private/
-  with restrictive permissions; never embed it in code, Nix, fixtures or releases.
+  interoperability research. Keep it exclusively in a private runtime application
+  configuration outside Git/Nix outputs (or ignored work/private/ for research).
+  Never embed values in code, Nix expressions, fixtures or releases.
   This exception does not authorize collecting cookies or anyone else's tokens,
   impersonating account holders, bypassing consent, or publishing Google's
   configuration.

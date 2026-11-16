@@ -176,9 +176,33 @@ ScrollView {
             UI.ActionButton {
                 tokens: page.tokens
                 text: qsTranslate("Ui", "Choose sign-in configuration")
-                visible: !page.backend.account_configured
+                visible: !page.backend.account_authorized
+                enabled: !page.backend.account_busy
                 onClicked: page.chooseConfig()
             }
+        }
+        UI.BodyText {
+            tokens: page.tokens
+            secondary: true
+            role: "label"
+            text: qsTranslate("Ui", "Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.")
+            visible: !page.backend.account_authorized
+            Layout.fillWidth: true
+        }
+        UI.BodyText {
+            tokens: page.tokens
+            secondary: true
+            role: "label"
+            text: qsTranslate("Ui", "Configuration file: %1").arg(page.backend.config_path)
+            visible: page.backend.config_path.length > 0
+            Layout.fillWidth: true
+        }
+        UI.BodyText {
+            tokens: page.tokens
+            text: page.backend.config_status
+            color: page.backend.config_error ? page.tokens.error : page.tokens.surfaceText
+            visible: text.length > 0
+            Layout.fillWidth: true
         }
         ProgressBar {
             Layout.fillWidth: true
