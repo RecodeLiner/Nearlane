@@ -232,11 +232,11 @@ impl PrivateSharing {
             .as_ref()
             .is_some_and(|c| c.publication_attempted)
         {
-            if let Some(grant) = grant {
-                if self.spawn(grant, Mode::Cleanup, None).is_ok() {
-                    self.status = PrivateStatus::SigningOut;
-                    return;
-                }
+            if let Some(grant) = grant
+                && self.spawn(grant, Mode::Cleanup, None).is_ok()
+            {
+                self.status = PrivateStatus::SigningOut;
+                return;
             }
             self.context = None;
             self.status = PrivateStatus::CleanupUnconfirmed;

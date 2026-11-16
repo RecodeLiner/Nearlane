@@ -1,0 +1,68 @@
+import { FilledButton, TonalButton, OutlineButton, ScrollView, LinearProgressIndicator } from "@material";
+import { Body, Heading, Card } from "../components.slint";
+import { UiState } from "../state.slint";
+import { I18n } from "../i18n.slint";
+import { Actions, Action } from "../actions.slint";
+
+export component SendPage inherits ScrollView {
+    in property <UiState> state;
+    in property <int> devices-revision: root.state.devices-revision;
+    callback settings();
+    changed devices-revision => { /* Candidates are selected by an explicit send action. */ }
+    horizontal_scrollbar_policy: always_off;
+    viewport_width: self.visible_width;
+    VerticalLayout {
+        width: parent.width;
+        padding: 24px;
+        spacing: 24px;
+        alignment: start;
+        Body { text: I18n.tr("Choose a file and the device to send it to."); }
+        Card {
+            Heading { text: root.state.selected-send-name == "" ? I18n.tr("What would you like to send?") : root.state.selected-send-name; }
+            Body { text: I18n.tr("One file up to 64 GiB. The transfer will be encrypted."); }
+            HorizontalLayout {
+                spacing: 12px; alignment: start;
+                FilledButton { horizontal-stretch: 0;
+                    text: root.state.selected-send-name == "" ? I18n.tr("Choose file") : I18n.tr("Choose another file");
+                    enabled: root.state.account-authorized && !root.state.transfer-busy;
+                    clicked => { Actions.choose-file(); }
+                }
+            }
+        }
+        HorizontalLayout {
+            Heading { text: I18n.tr("Nearby devices"); }
+            OutlineButton { horizontal-stretch: 0;
+                text: I18n.tr("Refresh");
+                enabled: root.state.discovery-available && !root.state.discovery-busy && !root.state.transfer-busy;
+                clicked => { Actions.action(Action.find-devices); }
+            }
+        }
+        if root.state.discovery-busy || root.state.private-busy : LinearProgressIndicator { indeterminate: true; }
+        if !root.state.account-authorized : Card {
+            Heading { text: I18n.tr("Sign in to connect your devices."); }
+            Body { text: I18n.tr("Connect the same Google account you use on your phone."); }
+            HorizontalLayout { spacing: 12px; alignment: start; TonalButton { horizontal-stretch: 0; text: I18n.tr("Go to account"); clicked => { root.settings(); } } }
+        }
+        for device[index] in root.state.own-devices : Card {
+            HorizontalLayout {
+                Heading { text: device; }
+                FilledButton { horizontal-stretch: 0;
+                    text: I18n.tr("Send");
+                    enabled: root.state.selected-send-name != "" && !root.state.transfer-busy && !root.state.account-busy;
+                    clicked => { Actions.send-file(index); }
+                }
+            }
+        }
+        for device in root.state.bluetooth-devices : Card {
+            Body { text: device; }
+            Body { text: I18n.tr("Found over Bluetooth, waiting for Wi-Fi"); }
+        }
+        if root.state.own-devices.length == 0 && root.state.account-authorized : Body { text: root.state.discovery-status; }
+        Body { text: root.state.bluetooth-status; }
+        Card {
+            Body { text: root.state.transfer-status; }
+            if root.state.transfer-busy : LinearProgressIndicator { indeterminate: true; }
+            if root.state.transfer-busy : HorizontalLayout { spacing: 12px; alignment: start; OutlineButton { horizontal-stretch: 0; text: I18n.tr("Cancel transfer"); clicked => { Actions.action(Action.cancel-transfer); } } }
+        }
+    }
+}

@@ -135,10 +135,10 @@ async fn run_on_proxy(
                 if message.body().len() > 512 {
                     continue;
                 }
-                if let Ok((received_id, key)) = message.body().deserialize::<(u32, String)>() {
-                    if let Some(action) = actions.decision(id, received_id, &key) {
-                        break Ok(action);
-                    }
+                if let Ok((received_id, key)) = message.body().deserialize::<(u32, String)>()
+                    && let Some(action) = actions.decision(id, received_id, &key)
+                {
+                    break Ok(action);
                 }
             }
             Ok(None) => break Err(NotificationError::Unavailable),

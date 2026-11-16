@@ -1,0 +1,37 @@
+import { MaterialPalette, Switch } from "@material";
+export component Body inherits Text {
+    wrap: word-wrap;
+    color: MaterialPalette.on_surface_variant;
+    font-size: 14px;
+    vertical-stretch: 0;
+}
+export component Heading inherits Body {
+    color: MaterialPalette.on_surface;
+    font-size: 21px;
+    font-weight: 600;
+}
+export component Card inherits Rectangle {
+    background: MaterialPalette.surface_container;
+    border-radius: 24px;
+    vertical-stretch: 0;
+    VerticalLayout { padding: 24px; spacing: 16px; @children }
+}
+export component Setting inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <bool> checked;
+    callback toggled(bool);
+    vertical-stretch: 0;
+    HorizontalLayout {
+        spacing: 24px;
+        VerticalLayout {
+            spacing: 6px;
+            Body { text: root.title; color: MaterialPalette.on_surface; font-size: 16px; }
+            Body { text: root.description; }
+        }
+        Switch {
+            width: 52px;
+            height: 32px;
+            horizontal-stretch: 0; checked: root.checked; checked_state_changed(value) => { root.toggled(value); } }
+    }
+}

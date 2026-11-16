@@ -1,0 +1,16 @@
+export enum Action { sign-in, cancel-sign-in, sign-out, restore-sign-in, prepare-devices, find-devices, cancel-discovery, cancel-transfer, start-receiving, stop-receiving, check-contacts }
+export global Actions {
+    callback action(Action);
+    callback choose-file();
+    callback choose-configuration();
+    callback choose-destination();
+    callback send-file(int);
+    callback decide-incoming(bool);
+    callback receiving(bool, bool);
+    callback discovery(bool);
+    callback language(string);
+    callback foreground(bool);
+    callback open-window();
+    callback about();
+    callback quit();
+}

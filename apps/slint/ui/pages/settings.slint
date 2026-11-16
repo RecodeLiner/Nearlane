@@ -1,0 +1,98 @@
+import { FilledButton, TonalButton, OutlineButton, ScrollView, LinearProgressIndicator } from "@material";
+import { Body, Heading, Card, Setting } from "../components.slint";
+import { UiState } from "../state.slint";
+import { I18n } from "../i18n.slint";
+import { Actions, Action } from "../actions.slint";
+
+export component SettingsPage inherits ScrollView {
+    in property <UiState> state;
+    private property <bool> diagnostics;
+    horizontal_scrollbar_policy: always_off;
+    viewport_width: self.visible_width;
+    VerticalLayout {
+        width: parent.width;
+        padding: 24px;
+        spacing: 24px;
+        alignment: start;
+        Card {
+            Heading { text: I18n.tr("Language"); }
+            HorizontalLayout {
+                spacing: 12px; alignment: start;
+                TonalButton { horizontal-stretch: 0; text: I18n.tr("System default"); clicked => { Actions.language("system"); } }
+                TonalButton { horizontal-stretch: 0; text: "English"; clicked => { Actions.language("en"); } }
+                TonalButton { horizontal-stretch: 0; text: "Русский"; clicked => { Actions.language("ru"); } }
+            }
+            Body { text: I18n.tr("The language changes immediately and is remembered for next time."); }
+        }
+        Card {
+            Heading { text: I18n.tr("Receiving and discovery"); }
+            Setting {
+                title: I18n.tr("Receive from your devices");
+                description: I18n.tr("Enable receiving after sign-in and keep running in the system tray.");
+                checked: root.state.background-receiving;
+                toggled(value) => { Actions.receiving(value,root.state.confirm-each-file); }
+            }
+            Setting {
+                title: I18n.tr("Ask before receiving");
+                description: I18n.tr("Show Accept and Decline buttons in the window and notification.");
+                checked: root.state.confirm-each-file;
+                toggled(value) => { Actions.receiving(root.state.background-receiving,value); }
+            }
+            Setting {
+                title: I18n.tr("Find devices in the background");
+                description: I18n.tr("Discover devices over Wi-Fi and Bluetooth. Transfer files over Wi-Fi.");
+                checked: root.state.continuous-discovery;
+                toggled(value) => { Actions.discovery(value); }
+            }
+            Body { text: root.state.preferences-status; }
+        }
+        Card {
+            Heading { text: I18n.tr("Google account"); }
+            Body { text: root.state.account-status; }
+            Body { text: root.state.saved-login-status; }
+            Body { text: I18n.tr("Use the same account on your phone and computer. Nearlane remembers your sign-in in the system credential store."); }
+            if !root.state.account-authorized : VerticalLayout {
+                spacing: 12px;
+                HorizontalLayout {
+                    spacing: 12px; alignment: start;
+                    FilledButton { horizontal-stretch: 0; text: I18n.tr("Sign in with Google"); enabled: root.state.account-configured && !root.state.account-busy; clicked => { Actions.action(Action.sign-in); } }
+                    if root.state.login-cancellable : OutlineButton { horizontal-stretch: 0; text: I18n.tr("Cancel sign-in"); clicked => { Actions.action(Action.cancel-sign-in); } }
+                }
+                HorizontalLayout {
+                    spacing: 12px; alignment: start;
+                    OutlineButton { horizontal-stretch: 0; text: I18n.tr("Choose sign-in configuration"); enabled: !root.state.account-busy; clicked => { Actions.choose-configuration(); } }
+                }
+                HorizontalLayout { spacing: 12px; alignment: start;
+                    if root.state.login-remembered : OutlineButton { horizontal-stretch: 0; text: I18n.tr("Retry sign-in"); enabled: !root.state.account-busy; clicked => { Actions.action(Action.restore-sign-in); } }
+                }
+                Body { text: I18n.tr("Select a local OAuth JSON file. Its application parameters will be saved privately for future launches."); }
+            }
+            Body { text: root.state.config-path; }
+            Body { text: root.state.config-status; }
+            if root.state.account-busy : LinearProgressIndicator { indeterminate: true; }
+            if root.state.account-authorized || root.state.login-remembered : HorizontalLayout { spacing: 12px; alignment: start; OutlineButton { horizontal-stretch: 0; text: I18n.tr("Sign out"); enabled: !root.state.account-busy; clicked => { Actions.action(Action.sign-out); } } }
+        }
+        Card {
+            HorizontalLayout {
+                spacing: 12px; alignment: start;
+                TonalButton { horizontal-stretch: 0; text: I18n.tr("Show diagnostics"); clicked => { root.diagnostics = !root.diagnostics; } }
+            }
+            if root.diagnostics : VerticalLayout {
+                spacing: 16px;
+                Body { text: root.state.status; }
+                Body { text: root.state.private-status; }
+                Body { text: root.state.discovery-status; }
+                Body { text: root.state.bluetooth-status; }
+                for certificate in root.state.certificate-rows : Body { text: certificate; }
+                HorizontalLayout {
+                    spacing: 12px; alignment: start;
+                    OutlineButton { horizontal-stretch: 0; text: I18n.tr("Retry device setup"); enabled: root.state.account-authorized && !root.state.private-busy && !root.state.receiving-active; clicked => { Actions.action(Action.prepare-devices); } }
+                    OutlineButton { horizontal-stretch: 0; text: I18n.tr("Check contacts support"); clicked => { Actions.action(Action.check-contacts); } }
+                }
+            }
+        }
+        Body { text: I18n.tr("Experimental version: one file up to 64 GiB, over Wi-Fi on the same network. Bluetooth helps discovery; Contacts mode is not available yet. Use a test account for testing."); }
+        Body { text: I18n.tr("Uses a locally imported Quick Share configuration; that name may appear on the consent page. Nearlane is an independent project, not affiliated with Google or Samsung."); }
+        HorizontalLayout { alignment: start; OutlineButton { horizontal-stretch: 0; text: I18n.tr("About Nearlane"); clicked => { Actions.about(); } } }
+    }
+}

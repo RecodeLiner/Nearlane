@@ -1,9 +1,6 @@
 //! Nearlane's Qt Quick desktop shell.
 
 mod backend;
-mod bluetooth;
-mod i18n;
-mod notifications;
 
 use cxx_qt::casting::Upcast as _;
 use cxx_qt_lib::{QQmlApplicationEngine, QQmlEngine, QUrl};
@@ -14,7 +11,6 @@ fn main() {
         eprintln!("smoke: starting Qt");
     }
     let mut application = backend::ffi::create_application();
-    backend::ffi::install_language(&backend::ffi::language_preference());
     if smoke {
         eprintln!("smoke: starting QML engine");
     }

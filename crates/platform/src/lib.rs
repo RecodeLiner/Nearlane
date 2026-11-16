@@ -3,6 +3,13 @@ pub mod bluetooth;
 pub mod configuration;
 pub mod credentials;
 pub mod notifications;
+pub mod preferences;
+
+/// Open an authorization URL in the OS browser without logging it or passing
+/// it through a shell. Only the application controller calls this function.
+pub fn open_browser(url: &str) -> std::io::Result<()> {
+    open::that_detached(url)
+}
 
 /// Identifies where a future OS-specific adapter must be implemented.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

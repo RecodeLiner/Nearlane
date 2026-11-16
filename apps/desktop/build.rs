@@ -18,7 +18,6 @@ fn main() {
     )
     .qt_module("QuickControls2")
     .qt_module("Network")
-    .qt_module("Bluetooth")
     .qt_module("Widgets")
     .qrc("qml/resources.qrc")
     .qrc(translations)
@@ -34,7 +33,7 @@ fn build_translations() -> std::path::PathBuf {
     let executable = env::var_os("LRELEASE").unwrap_or_else(|| "lrelease".into());
     let mut resources = String::from("<RCC><qresource prefix=\"/nearlane/i18n\">");
     for language in ["en", "ru"] {
-        let source = format!("i18n/nearlane_{language}.ts");
+        let source = format!("../../crates/application/i18n/nearlane_{language}.ts");
         println!("cargo:rerun-if-changed={source}");
         let destination = output.join(format!("nearlane_{language}.qm"));
         let status = Command::new(&executable)

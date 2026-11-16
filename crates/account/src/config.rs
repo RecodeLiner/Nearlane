@@ -70,10 +70,10 @@ impl ClientConfig {
             let directory = destination
                 .parent()
                 .ok_or("missing configuration directory")?;
-            if let Ok(metadata) = fs::symlink_metadata(directory) {
-                if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                    return Err("invalid configuration directory".into());
-                }
+            if let Ok(metadata) = fs::symlink_metadata(directory)
+                && (metadata.file_type().is_symlink() || !metadata.is_dir())
+            {
+                return Err("invalid configuration directory".into());
             }
             let new_directory = !directory.exists();
             let mut builder = fs::DirBuilder::new();
@@ -105,10 +105,10 @@ impl ClientConfig {
             }
             #[cfg(not(unix))]
             let _ = new_directory;
-            if let Ok(metadata) = fs::symlink_metadata(destination) {
-                if metadata.file_type().is_symlink() || !metadata.is_file() {
-                    return Err("invalid configuration file".into());
-                }
+            if let Ok(metadata) = fs::symlink_metadata(destination)
+                && (metadata.file_type().is_symlink() || !metadata.is_file())
+            {
+                return Err("invalid configuration file".into());
             }
             let mut file = tempfile::Builder::new()
                 .prefix(".oauth-client-")

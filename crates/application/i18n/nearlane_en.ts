@@ -88,10 +88,6 @@
       <translation>Bluetooth is unavailable. Wi-Fi discovery continues.</translation>
     </message>
     <message>
-      <source>Bluetooth permission is denied. Check system settings.</source>
-      <translation>Bluetooth permission is denied. Check system settings.</translation>
-    </message>
-    <message>
       <source>Certificate %1 - %2
 %3
 %4 → %5</source>
@@ -623,6 +619,10 @@
       <translation>%1 · found via Bluetooth, waiting for Wi-Fi</translation>
     </message>
     <message>
+      <source>About Nearlane</source>
+      <translation>About Nearlane</translation>
+    </message>
+    <message>
       <source>Accept</source>
       <translation>Accept</translation>
     </message>
@@ -659,6 +659,10 @@
       <translation>Cancel sign-in</translation>
     </message>
     <message>
+      <source>Cancel transfer</source>
+      <translation>Cancel transfer</translation>
+    </message>
+    <message>
       <source>Change folder</source>
       <translation>Change folder</translation>
     </message>
@@ -685,6 +689,10 @@
     <message>
       <source>Choose sign-in configuration</source>
       <translation>Choose sign-in configuration</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation>Close</translation>
     </message>
     <message>
       <source>Configuration file: %1</source>
@@ -761,6 +769,10 @@
     <message>
       <source>Find devices in the background</source>
       <translation>Find devices in the background</translation>
+    </message>
+    <message>
+      <source>Found over Bluetooth, waiting for Wi-Fi</source>
+      <translation>Found over Bluetooth, waiting for Wi-Fi</translation>
     </message>
     <message>
       <source>Go to account</source>

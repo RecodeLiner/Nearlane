@@ -36,6 +36,8 @@ def sources():
     found = {"Ui": set(), "Backend": set()}
     for path in (ROOT / "apps/desktop/qml").rglob("*.qml"):
         found["Ui"].update(decode(m[1]) for m in re.finditer(r'qsTranslate\("Ui",\s*(' + STRING + ')', path.read_text()))
+    for path in (ROOT / "apps/slint/ui").rglob("*.slint"):
+        found["Ui"].update(decode(m[1]) for m in re.finditer(r'I18n\.tr\(\s*(' + STRING + ')', path.read_text()))
     paths = list((ROOT / "crates").rglob("*.rs")) + list((ROOT / "apps/desktop/src").glob("*.rs"))
     for path in paths:
         if path == ROOT / "crates/core/src/text.rs": continue
@@ -84,7 +86,7 @@ def main():
     args = parser.parse_args()
     expected = sources()
     for language in ("en", "ru"):
-        path = ROOT / f"apps/desktop/i18n/nearlane_{language}.ts"
+        path = ROOT / f"crates/application/i18n/nearlane_{language}.ts"
         if args.check:
             validate(path, expected)
             continue

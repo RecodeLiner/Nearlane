@@ -1,1 +1,1 @@
-<RCC><qresource prefix="/nearlane"><file alias="icon.svg">icon.svg</file></qresource></RCC>
+<RCC><qresource prefix="/nearlane"><file alias="icon.svg">../../../packaging/icons/org.nearlane.Nearlane.svg</file></qresource></RCC>

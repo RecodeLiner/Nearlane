@@ -7,7 +7,7 @@ default-members = ["apps/cli"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 publish = false
 
@@ -18,6 +18,7 @@ nearlane-account = { path = "crates/account" }
 nearlane-protocol = { path = "crates/protocol" }
 nearlane-platform = { path = "crates/platform" }
 nearlane-service = { path = "crates/service" }
+nearlane-application = { path = "crates/application" }
 nearlane-transfer = { path = "crates/transfer" }
 nearlane-certificates = { path = "crates/certificates" }
 nearlane-discovery = { path = "crates/discovery" }
@@ -47,6 +48,17 @@ subtle = "2.6"
 url = "2.5"
 zeroize = "1.8"
 serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+dirs = "6"
+roxmltree = "0.21"
+sys-locale = "0.3"
+open = "5"
+btleplug = "0.13.5"
+uuid = "1"
+slint = { version = "=1.19.0", default-features = false, features = ["std", "backend-winit", "renderer-software", "renderer-femtovg", "accessibility", "compat-1-2", "system-tray"] }
+slint-build = "=1.19.0"
+rfd = "0.18"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 cxx = "1.0"
 cxx-qt = "0.10"

@@ -1,0 +1,96 @@
+import { MaterialWindow, MaterialPalette, NavigationRail, NavigationBar, NavigationItem, Dialog } from "@material";
+import { AboutSlint } from "std-widgets.slint";
+import { Heading, Body } from "components.slint";
+import { UiState } from "state.slint";
+import { I18n } from "i18n.slint";
+import { Actions } from "actions.slint";
+import { SendPage } from "pages/send.slint";
+import { ReceivePage } from "pages/receive.slint";
+import { SettingsPage } from "pages/settings.slint";
+export { Actions, Action } from "actions.slint";
+export { I18n } from "i18n.slint";
+export { Palette } from "std-widgets.slint";
+export { UiState } from "state.slint";
+
+export component MainWindow inherits MaterialWindow {
+    title: "Nearlane";
+    icon: @image-url("../../../packaging/icons/org.nearlane.Nearlane.svg");
+    preferred-width: 980px;
+    preferred-height: 760px;
+    min-width: 420px;
+    min-height: 520px;
+    in-out property <UiState> state;
+    in-out property <int> page;
+    private property <bool> wide: root.width >= 720px;
+    private property <[NavigationItem]> destinations: [
+        { text: I18n.tr("Send"), icon: @image-url("icons/send.svg") },
+        { text: I18n.tr("Receive"), icon: @image-url("icons/receive.svg") },
+        { text: I18n.tr("Settings"), icon: @image-url("icons/settings.svg") },
+    ];
+    changed page => { Actions.foreground(root.page == 0); }
+    public function show-about() { about.show(); }
+    about := Dialog {
+        width: root.width;
+        height: root.height;
+        title: I18n.tr("About Nearlane");
+        default_action_text: I18n.tr("Close");
+        default_action_clicked => { self.close(); }
+        Body { text: "Nearlane · MIT / Apache-2.0"; }
+        // Required by the Slint Royalty-free 2.0 license; this dialog is
+        // directly accessible from the system tray's top-level About menu.
+        AboutSlint { min-width: 280px; }
+    }
+    VerticalLayout {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        spacing: 0;
+        HorizontalLayout {
+            spacing: 0;
+            if root.wide : NavigationRail {
+                width: 104px;
+                alignment: start;
+                items: root.destinations;
+                current_index <=> root.page;
+            }
+            VerticalLayout {
+                spacing: 0;
+                Rectangle {
+                    background: MaterialPalette.surface;
+                    height: 88px;
+                    HorizontalLayout {
+                        padding: 24px;
+                        Heading { text: root.destinations[root.page].text; font-size: 28px; }
+                        Body { text: "Nearlane"; horizontal-alignment: right; }
+                    }
+                }
+                // Keep each page instance alive across navigation and resizing.
+                Rectangle {
+                    SendPage { visible: root.page == 0; state: root.state; settings => { root.page=2; } }
+                    ReceivePage { visible: root.page == 1; state: root.state; settings => { root.page=2; } }
+                    SettingsPage { visible: root.page == 2; state: root.state; }
+                }
+            }
+        }
+        if !root.wide : NavigationBar {
+            items: root.destinations;
+            current_index <=> root.page;
+        }
+    }
+}
+
+export component Tray inherits SystemTrayIcon {
+    icon: @image-url("../../../packaging/icons/org.nearlane.Nearlane.svg");
+    tooltip: "Nearlane";
+    in-out property <UiState> state;
+    clicked => { Actions.open-window(); }
+    Menu {
+        MenuItem { title: I18n.tr("Open Nearlane"); activated => { Actions.open-window(); } }
+        MenuItem { title: I18n.tr("About Nearlane"); activated => { Actions.about(); } }
+        MenuItem { title: I18n.tr("Receive from your devices"); checkable: true; checked: root.state.background-receiving; activated => { Actions.receiving(!root.state.background-receiving,root.state.confirm-each-file); } }
+        MenuItem { title: I18n.tr("Find devices in the background"); checkable: true; checked: root.state.continuous-discovery; activated => { Actions.discovery(!root.state.continuous-discovery); } }
+        MenuSeparator {}
+        MenuItem { title: I18n.tr("Quit"); activated => { Actions.quit(); } }
+    }
+}

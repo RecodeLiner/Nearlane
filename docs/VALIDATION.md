@@ -216,3 +216,21 @@ certificate/API evidence](research/identity-certificates.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package
 is optimized. Tests do not use real account credentials or proprietary fixtures.
+
+## Shared application and Slint migration - 2026-11-17
+
+The Qt presentation adapter now uses the shared command/snapshot controller.
+Its isolated configuration-import/restart, live translations and private-mode
+checks pass with the session and KDE styles. The Slint frontend builds in its
+own development shell without Qt. Headless checks exercise real generated
+callbacks, en/ru translation, synthetic configuration import and local login
+cancellation, receiving preferences and software rendering. Synthetic PNGs
+cover sending, incoming consent, settings, narrow layouts and dark/light themes.
+These are presentation/controller tests, not a real Android transfer trial.
+
+Application tests cover persistence across frontend lifetimes, malformed import
+rollback, source-file removal, explicit local login cancellation, hidden policy
+without credentials, and stale decisions. Platform tests cover legacy Linux
+settings migration and the bounded Bluetooth Apple-name fallback. The new Rust
+radio adapter and native Slint tray still require real OS/device verification.
+Qt remains the default package while that validation is pending.

@@ -1,6 +1,8 @@
 //! Optional native wake advertisement; packet semantics are independent of OS.
 #[cfg(target_os = "linux")]
 mod linux;
+mod scan;
+pub use scan::{BluetoothScan, ScanState};
 use std::{
     fmt,
     sync::{
@@ -33,7 +35,7 @@ pub fn silent_initiation_data() -> [u8; 24] {
     data
 }
 /// Whether this adapter can emit the required service data. CoreBluetooth scan
-/// support is provided separately by the desktop's portable Qt Bluetooth layer.
+/// support is provided separately by the portable Rust scanner.
 pub const fn wake_supported() -> bool {
     cfg!(target_os = "linux")
 }

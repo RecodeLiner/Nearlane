@@ -301,10 +301,10 @@ impl SendJob {
     /// Request cancellation and interrupt blocked established-socket IO.
     pub fn cancel(&self) {
         self.cancellation.cancel();
-        if let Ok(slot) = self.socket.lock() {
-            if let Some(stream) = slot.as_ref() {
-                let _ = stream.shutdown(Shutdown::Both);
-            }
+        if let Ok(slot) = self.socket.lock()
+            && let Some(stream) = slot.as_ref()
+        {
+            let _ = stream.shutdown(Shutdown::Both);
         }
     }
     /// Read only safe scalar progress on the GUI thread.

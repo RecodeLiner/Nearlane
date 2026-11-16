@@ -35,8 +35,16 @@ pub struct Service {
 
 impl Default for Service {
     fn default() -> Self {
-        let account = nearlane_platform::configuration::oauth_config_path()
-            .map(|path| Account::from_local_config(&path))
+        Self::from_config(nearlane_platform::configuration::oauth_config_path().as_deref())
+    }
+}
+
+impl Service {
+    /// Construct offline with an explicit configuration path. `None` creates
+    /// an unconfigured service without inspecting a personal runtime profile.
+    pub fn from_config(path: Option<&std::path::Path>) -> Self {
+        let account = path
+            .map(Account::from_local_config)
             .unwrap_or_else(Account::unconfigured);
         Self {
             visibility: Visibility::Hidden,
@@ -91,11 +99,16 @@ impl Service {
             .ok_or(LoginError::ConfigurationStorage)?;
         self.import_config_to(source, &destination)
     }
-    fn import_config_to(
+    /// Import to an explicit runtime path owned by the application controller.
+    /// This is also the isolated-test boundary; no implicit profile fallback.
+    pub fn import_config_to(
         &mut self,
         source: &std::path::Path,
         destination: &std::path::Path,
     ) -> Result<(), LoginError> {
+        if self.account.busy() || self.account.status() == AccountStatus::Authorized {
+            return Err(LoginError::Busy);
+        }
         let config = nearlane_account::ClientConfig::import(source, destination)?;
         self.account = Account::from_client_config(config);
         self.pending_send = None;
@@ -273,6 +286,20 @@ impl Service {
     /// Authenticated candidate names only; no addresses, keys or tracking IDs.
     pub fn own_device_names(&self) -> Vec<&str> {
         self.discovery.devices.iter().map(|d| d.name()).collect()
+    }
+
+    /// Equality-only stamp for a displayed candidate list. It is not a peer
+    /// identifier or authorization token. The application converts changes to
+    /// a process-local generation before exposing a list to a frontend.
+    pub fn device_list_stamp(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut stamp = std::collections::hash_map::DefaultHasher::new();
+        for device in &self.discovery.devices {
+            device.name().hash(&mut stamp);
+            device.socket_address().hash(&mut stamp);
+            device.certificate().id().hash(&mut stamp);
+        }
+        stamp.finish()
     }
     /// Bounded BLE hint input from an OS adapter. It never creates a routable
     /// transfer target; Wi-Fi discovery and live proofs are still required.

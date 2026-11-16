@@ -542,15 +542,16 @@ impl Account {
             }
         }
         let refresh_due = self.next_refresh.is_some_and(|time| Instant::now() >= time);
-        if refresh_due && !self.saved.as_ref().is_some_and(SavedLogin::pending) {
-            if let Some(session) = &self.session {
-                let grant = Arc::clone(&session._grant);
-                let id = session.registration.clone();
-                if let Ok(saved) = self.ensure_saved() {
-                    saved.renew(&grant, &id);
-                }
-                self.next_refresh = None;
+        if refresh_due
+            && !self.saved.as_ref().is_some_and(SavedLogin::pending)
+            && let Some(session) = &self.session
+        {
+            let grant = Arc::clone(&session._grant);
+            let id = session.registration.clone();
+            if let Ok(saved) = self.ensure_saved() {
+                saved.renew(&grant, &id);
             }
+            self.next_refresh = None;
         }
         if self.next_restore.is_some_and(|time| Instant::now() >= time) && !self.busy() {
             let _ = self.restore_saved_sign_in();

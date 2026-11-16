@@ -260,10 +260,10 @@ impl ReceiveJob {
     /// Cancel both listener lifetime and established blocking IO.
     pub fn cancel(&self) {
         self.stop.cancel();
-        if let Ok(s) = self.socket.lock() {
-            if let Some(s) = s.as_ref() {
-                let _ = s.shutdown(Shutdown::Both);
-            }
+        if let Ok(s) = self.socket.lock()
+            && let Some(s) = s.as_ref()
+        {
+            let _ = s.shutdown(Shutdown::Both);
         }
     }
     /// Terminal saved-file result; a lost outgoing ACK cannot undo persistence.
@@ -356,10 +356,10 @@ impl Context {
                     let copy = stream.try_clone().map_err(|_| ReceiveFailure::Connection)?;
                     *socket.lock().map_err(|_| ReceiveFailure::Worker)? = Some(copy);
                     let outcome = self.receive(stream);
-                    if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
-                        if let Err(error) = &outcome {
-                            eprintln!("receiver: rejected {error:?}");
-                        }
+                    if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some()
+                        && let Err(error) = &outcome
+                    {
+                        eprintln!("receiver: rejected {error:?}");
                     }
                     *socket.lock().map_err(|_| ReceiveFailure::Worker)? = None;
                     if self.stop.is_cancelled() {

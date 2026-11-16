@@ -141,7 +141,8 @@ It never queues unbounded updates or probes arbitrary peers. Local advertisement
 are excluded from outgoing results. Desktop reception is enabled by default
 after successful login/private setup, and offers from verified own devices are
 automatically approved by default. Both settings and the local destination are
-saved with Qt QSettings; no credentials or trust data are saved there. CLI/service
+saved atomically in the shared platform preferences JSON; no credentials or trust
+data are saved there. Legacy Linux Qt settings migrate once. CLI/service
 construction stays offline with explicit consent. Sign-out/session loss/quit stop
 workers; saved preferences alone cannot establish trust or revive a session.
 Stop receiving persists disabled visibility. Storage/listener/identity failures
@@ -187,7 +188,7 @@ file was received and opens after mutual private verification and receiver accep
 The phone advertised version 4 and closed without a file receipt. Screen-off Wi-Fi
 bootstrap and large-file Android delivery are not verified.
 
-Qt Bluetooth supplies only bounded FEF3 hints, matched to current own-device
+The platform btleplug adapter supplies only bounded FEF3 hints, matched to current own-device
 certificates in Rust before a name is exposed. Bluetooth local names/addresses
 are not trusted and no BLE-only hint is a send target. Full Wi-Fi live proofs
 remain required. Linux's optional silent FE2C discovery signal carries no account
@@ -227,3 +228,20 @@ Nix store are rejected. Unix reads reject non-regular files without blocking.
 Other opaque desktop JSON fields are not persisted; account tokens remain in the
 OS credential store. Changing identity while authorized or busy is refused.
 The CLI importer publishes exclusively and never replaces an existing file.
+
+## Frontend boundary
+
+The application controller owns the service, OS browser dispatch, preferences,
+Bluetooth lifetime and scoped notification actions on a dedicated thread. Qt and
+Slint adapters render immutable snapshots and enqueue bounded typed commands.
+Snapshots exclude authorization URLs, grants, keys, certificate IDs and peer
+addresses. Incoming decisions carry the displayed request ID; stale decisions
+remain subject to the service gate. Send selections carry a process-local list
+generation; endpoint/certificate changes invalidate older selections even when
+displayed names happen to match. Dropping or explicitly stopping the application
+withdraws workers without signing out or erasing the saved grant.
+
+Isolated controller startup never restores an account grant, opens a browser,
+starts native Bluetooth or presents OS notifications. Explicit login smoke
+commands bind only a local callback listener and then cancel it. Preview fixtures
+are confined to an explicit headless launch with temporary configuration.

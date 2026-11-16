@@ -202,19 +202,18 @@ fn discover(
             if processed > 1024 {
                 return Err(DiscoveryError::Limit);
             }
-            if let ServiceEvent::ServiceResolved(info) = event {
-                if let Some(device) = identify(&info, &ty, &certificates) {
-                    if !devices.iter().any(|d: &OwnDevice| {
-                        d.endpoint == device.endpoint
-                            && d.address == device.address
-                            && d.port == device.port
-                    }) {
-                        if devices.len() >= 32 {
-                            return Err(DiscoveryError::Limit);
-                        }
-                        devices.push(device);
-                    }
+            if let ServiceEvent::ServiceResolved(info) = event
+                && let Some(device) = identify(&info, &ty, &certificates)
+                && !devices.iter().any(|d: &OwnDevice| {
+                    d.endpoint == device.endpoint
+                        && d.address == device.address
+                        && d.port == device.port
+                })
+            {
+                if devices.len() >= 32 {
+                    return Err(DiscoveryError::Limit);
                 }
+                devices.push(device);
             }
         } else if receiver.is_disconnected() {
             return Err(DiscoveryError::Network);

@@ -88,10 +88,6 @@
       <translation>Bluetooth недоступен. Поиск по Wi-Fi продолжает работать.</translation>
     </message>
     <message>
-      <source>Bluetooth permission is denied. Check system settings.</source>
-      <translation>Нет разрешения на Bluetooth. Проверьте системные настройки.</translation>
-    </message>
-    <message>
       <source>Certificate %1 - %2
 %3
 %4 → %5</source>
@@ -623,6 +619,10 @@
       <translation>%1 · найдено по Bluetooth, ожидаем Wi-Fi</translation>
     </message>
     <message>
+      <source>About Nearlane</source>
+      <translation>О Nearlane</translation>
+    </message>
+    <message>
       <source>Accept</source>
       <translation>Принять</translation>
     </message>
@@ -659,6 +659,10 @@
       <translation>Отменить вход</translation>
     </message>
     <message>
+      <source>Cancel transfer</source>
+      <translation>Отменить передачу</translation>
+    </message>
+    <message>
       <source>Change folder</source>
       <translation>Изменить папку</translation>
     </message>
@@ -685,6 +689,10 @@
     <message>
       <source>Choose sign-in configuration</source>
       <translation>Выбрать конфигурацию входа</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation>Закрыть</translation>
     </message>
     <message>
       <source>Configuration file: %1</source>
@@ -761,6 +769,10 @@
     <message>
       <source>Find devices in the background</source>
       <translation>Искать устройства в фоне</translation>
+    </message>
+    <message>
+      <source>Found over Bluetooth, waiting for Wi-Fi</source>
+      <translation>Найдено по Bluetooth, ожидаем Wi-Fi</translation>
     </message>
     <message>
       <source>Go to account</source>

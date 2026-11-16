@@ -11,11 +11,19 @@ nearlane-core.workspace = true
 keyring.workspace = true
 sha2.workspace = true
 zeroize.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+dirs.workspace = true
+open.workspace = true
+btleplug.workspace = true
+base64.workspace = true
+uuid.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus.workspace = true
-tokio.workspace = true
-futures-util.workspace = true
 rand.workspace = true
 
 [lints]

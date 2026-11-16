@@ -26,3 +26,11 @@ Apache-2.0. These are public test data, not credentials from a real account.
 
 No proprietary Google binaries/resources, embedded client credentials, or source
 from GPL-only sharing clients are included in this repository.
+
+Slint Material Components 1.1.0 (SixtyFPS GmbH, MIT) are included unmodified under
+third_party/slint-material, with archive provenance and original license.
+https://material.slint.dev/
+The Slint 1.19.0 framework is used under its Royalty-free Desktop, Mobile, and
+Web Applications License 2.0, independently of the original Nearlane code's
+MIT OR Apache-2.0 license. The Slint frontend includes the required AboutSlint
+attribution in Settings. See the copied framework license in that directory.

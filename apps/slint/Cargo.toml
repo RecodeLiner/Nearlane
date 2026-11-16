@@ -1,0 +1,29 @@
+[package]
+name = "nearlane-slint"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.95"
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+nearlane-application.workspace = true
+nearlane-platform.workspace = true
+slint.workspace = true
+rfd.workspace = true
+tempfile.workspace = true
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+slint-build.workspace = true
+
+# Slint generates vtable implementations. Allow them only inside the generated
+# ui module; handwritten frontend code denies unsafe, shared crates forbid it.
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+all = "warn"
+unwrap_used = "warn"
+expect_used = "warn"

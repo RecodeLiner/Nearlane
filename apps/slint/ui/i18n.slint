@@ -1,0 +1,6 @@
+// Translation uses the same catalogs as Qt; opaque names never reach lookup.
+export global I18n {
+    in-out property <string> language;
+    pure callback lookup(string, string) -> string;
+    public pure function tr(source: string) -> string { return root.lookup(source, root.language); }
+}

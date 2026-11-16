@@ -1,0 +1,50 @@
+import { FilledButton, OutlineButton, ScrollView, LinearProgressIndicator } from "@material";
+import { Body, Heading, Card } from "../components.slint";
+import { UiState } from "../state.slint";
+import { I18n } from "../i18n.slint";
+import { Actions, Action } from "../actions.slint";
+
+export component ReceivePage inherits ScrollView {
+    in property <UiState> state;
+    callback settings();
+    horizontal_scrollbar_policy: always_off;
+    viewport_width: self.visible_width;
+    VerticalLayout {
+        width: parent.width;
+        padding: 24px;
+        spacing: 24px;
+        alignment: start;
+        Card {
+            Heading { text: root.state.receiving-active ? I18n.tr("Available to your devices") : !root.state.account-authorized ? I18n.tr("Sign in to receive files") : root.state.background-receiving ? I18n.tr("Preparing to receive") : I18n.tr("Receiving is off"); }
+            Body { text: root.state.receiving-active ? I18n.tr("On your phone, choose a file → Quick Share → Nearlane. You can minimize this window; the app will keep running in the system tray.") : I18n.tr("Enable receiving so your phone can find this computer."); }
+            HorizontalLayout {
+                spacing: 12px; alignment: start;
+                FilledButton { horizontal-stretch: 0;
+                    text: !root.state.account-authorized ? I18n.tr("Go to account") : root.state.receiving-active ? I18n.tr("Stop receiving") : I18n.tr("Enable receiving");
+                    enabled: !root.state.account-authorized || (!root.state.transfer-busy && !root.state.account-busy);
+                    clicked => {
+                        if !root.state.account-authorized { root.settings(); }
+                        else if root.state.receiving-active { Actions.action(Action.stop-receiving); }
+                        else { Actions.action(Action.start-receiving); }
+                    }
+                }
+            }
+        }
+        if root.state.receive-pending : Card {
+            Heading { text: I18n.tr("Accept this file?"); }
+            Body { text: root.state.incoming-offer; }
+            HorizontalLayout {
+                spacing: 12px; alignment: start;
+                FilledButton { horizontal-stretch: 0; text: I18n.tr("Accept"); clicked => { Actions.decide-incoming(true); } }
+                OutlineButton { horizontal-stretch: 0; text: I18n.tr("Decline"); clicked => { Actions.decide-incoming(false); } }
+            }
+        }
+        Card {
+            Heading { text: I18n.tr("Save files to"); }
+            Body { text: root.state.receive-directory; }
+            HorizontalLayout { spacing: 12px; alignment: start; OutlineButton { horizontal-stretch: 0; text: I18n.tr("Change folder"); enabled: !root.state.receiving-active; clicked => { Actions.choose-destination(); } } }
+        }
+        Body { text: root.state.receive-status; }
+        Body { text: root.state.preferences-status; }
+    }
+}

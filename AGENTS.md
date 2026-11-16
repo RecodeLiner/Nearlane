@@ -1,7 +1,10 @@
 # Nearlane development conventions
 
-- Use a Cargo workspace. Keep Qt dependencies in apps/desktop; keep protocol and
-  authentication usable without any GUI toolkit.
+- Use a Cargo workspace. Keep Qt in apps/desktop and Slint in apps/slint.
+  Frontends render snapshots and dispatch typed commands only. Shared application
+  orchestration belongs in crates/application, OS integration in crates/platform,
+  and protocol/account policy in the existing service and domain crates.
+  No GUI toolkit dependency may enter those shared crates.
 - Follow Rust API Guidelines: clear ownership, typed errors, bounded input,
   documented public APIs. Run rustfmt, clippy and relevant tests.
 - Prefer flat module files (auth/src/callback.rs) grouped into crate directories.

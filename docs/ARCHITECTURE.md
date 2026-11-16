@@ -1,32 +1,39 @@
 # Architecture and build boundaries
 
-The shared core and service own policy. Platform adapters own OS services. The
-Qt application presents state and sends commands; it must not mint or persist
-credentials. An account plugin from Scotty is neither used nor required.
-
-Dependency graph:
+The service and domain crates own protocol and private-mode policy. The shared
+application owns desktop orchestration on a dedicated thread, independently of
+UI event loops: startup, account restore/browser dispatch, settings persistence,
+Bluetooth lifecycle and scoped notification decisions. Platform adapters own OS
+services. Frontends render snapshots, collect local file choices, and dispatch
+typed commands. An account plugin from Scotty is neither used nor required.
 
 ```text
-desktop (Qt/QML) ──> service ──> core
-                      └─────> platform
-                      └─────> account ──> auth
-                                  └────> certificates ──> core + RustCrypto
-                                  └────> platform ──> OS credential store
-                      └─────> discovery ──> certificates + mDNS
-                      └─────> transfer ──> protocol + certificates
-cli ──────────────> service
- └────────────────> auth
-cli ──────────────> transfer ──> protocol ──> Google UKEY2 + RustCrypto
+Qt/QML adapter ----+
+                  +--> application --> service --> core
+Slint adapter ----+       |               |-------> account --> auth/certificates
+                         |               |-------> discovery --> mDNS/certificates
+                         |               +-------> transfer --> protocol
+                         +--> platform --> OS browser, settings, Bluetooth, notifications
+cli -----------------------> service / auth / transfer
 ```
+
+The application command channel is bounded. Only localized presentation data
+crosses back: no authorization URL, token, key, raw certificate ID or peer
+address enters a snapshot. File consent is request-scoped; device-list changes
+advance a selection generation. Both frontends share settings and the account
+configuration. Running both at once against one registration is unsupported.
 
 Each directory under crates/ is a Cargo package with an independent compilation
 unit. Cargo shares a target directory across this workspace, caches dependency
 artifacts, and builds independent units in parallel. Incremental compilation is
 used by the dev profile. No global linker flags or static Qt configuration are
-required. Dynamic Qt linking is intentional.
+required. Dynamic Qt linking is intentional for the Qt frontend. The Slint
+frontend uses Winit, software/FemtoVG renderers and no Qt or CXX-Qt dependency.
+It has its own Cargo package, cached independently, and Rust >= 1.95 requirement.
 
-Bluetooth discovery uses Qt Bluetooth only in the desktop boundary, with native
-BlueZ/CoreBluetooth selected by Qt. Bounded BLE packet decoding, trusted hint
+Bluetooth discovery uses btleplug in the platform crate, selecting BlueZ,
+CoreBluetooth or Windows native APIs. The application coordinates its lifetime;
+frontends do not construct a radio. Bounded BLE packet decoding, trusted hint
 matching and all file policy stay in portable Rust. The optional raw wake beacon
 is a separate platform adapter; macOS does not falsely inherit Linux capability.
 Darwin packaging includes an app bundle and Bluetooth permission metadata.
@@ -38,7 +45,7 @@ total-transfer bounds. Only validated file progress renews idle time. Control
 traffic is limited per minute and cannot extend a stalled transfer. File frames
 are no longer charged to the old lifetime control-frame count.
 
-The initial Nix package is a single buildRustPackage derivation: its source changes
+Each frontend Nix package is a buildRustPackage derivation: its source changes
 rebuild that derivation rather than sharing the development target/ cache. Cargo
 workspace caching applies to local development and validation. Splitting immutable third-party
 build artifacts into a separate Nix derivation is a later optimization, not a
@@ -83,7 +90,7 @@ rotation, and resets receiving on sign-out or session loss. Effective visibility
 OwnDevices only while the receiver is advertised; Contacts remains unavailable. The bare
 service/CLI is hidden by default. Desktop settings default to own-device reception and
 automatic acceptance; optional per-file consent remains available. Discovery alone never
-establishes permission to receive. Qt QSettings holds only local preferences,
+establishes permission to receive. Shared atomic JSON holds only local preferences,
 independently of account trust and OS-vault credentials. An outgoing operation snapshots
 its recipient, cancels an idle receiver and waits asynchronously for its signing handle,
 then reception resumes after sending. Native Linux notifications live in the platform
@@ -117,10 +124,12 @@ on those operating systems. Rust portability does not abstract away their radios
 
 ## Localization
 
-The desktop owns QTranslator and locale preferences. UI text lives in two Qt TS
-catalogs (English and Russian), compiled with Linguist lrelease into embedded
-resources. QML uses the Ui context. Shared services expose deferred core::Text
-messages in the Backend context, alongside English CLI rendering. Templates and
+The application owns language preferences and shared English/Russian TS catalogs
+in crates/application/i18n. QML uses QTranslator with the Ui context; Slint
+uses the same Ui keys through a presentation callback. Qt compiles catalogs with
+lrelease, while the Rust controller embeds and parses the TS catalogs once.
+Shared services expose deferred core::Text messages in the Backend context,
+alongside English CLI rendering. Templates and
 nested messages are translated before opaque literal arguments are inserted;
 account names, filenames and paths never enter a translation lookup or a second
 placeholder pass. No Qt dependency was introduced into shared crates.
@@ -145,3 +154,17 @@ The refresh grant remains in the OS vault under the same client-ID-derived entry
 The Nix package installs a credential-free nearlane-import-google-oauth command;
 its default destination follows the same platform path policy. No source-tree
 fallback or implicit migration reads arbitrary credentials from the launch folder.
+
+## Gradual Slint migration
+
+The default Nix package remains Qt. packages.slint and devShells.slint provide a
+separate frontend without Qt; app behavior is already shared, not reimplemented.
+Slint Material Components 1.1.0 are vendored under MIT with archive provenance.
+Slint framework 1.19.0 uses the Royalty-free 2.0 license; Settings embeds the
+required AboutSlint attribution. Original Nearlane sources remain MIT/Apache.
+The Nix Slint variant explicitly declares the additional non-free license.
+
+Legacy Linux QSettings INI preferences migrate to the shared JSON without
+modifying the original. Legacy macOS/Windows preference import remains pending.
+The OS-vault grant and runtime OAuth path are unchanged. Native Slint tray and
+new Bluetooth adapter hardware checks remain separate from headless UI tests.

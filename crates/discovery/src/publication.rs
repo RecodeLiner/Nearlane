@@ -117,22 +117,21 @@ mod tests {
         while std::time::Instant::now() < deadline {
             if let Ok(mdns_sd::ServiceEvent::ServiceResolved(info)) =
                 events.recv_timeout(Duration::from_millis(100))
+                && info.get_port() == port
+                && info.get_hostname() == "nearlane-NQAT.local."
             {
-                if info.get_port() == port && info.get_hostname() == "nearlane-NQAT.local." {
-                    let ty = advertisement::service_type();
-                    let instance = info
-                        .get_fullname()
-                        .strip_suffix(&ty)
-                        .unwrap()
-                        .trim_end_matches('.');
-                    let ad =
-                        advertisement::decode(instance, info.get_property_val_str("n").unwrap())
-                            .unwrap();
-                    assert_eq!(ad.endpoint, *b"NQAT");
-                    assert_eq!(ad.key.to_bytes(), [7; 16]);
-                    found = true;
-                    break;
-                }
+                let ty = advertisement::service_type();
+                let instance = info
+                    .get_fullname()
+                    .strip_suffix(&ty)
+                    .unwrap()
+                    .trim_end_matches('.');
+                let ad = advertisement::decode(instance, info.get_property_val_str("n").unwrap())
+                    .unwrap();
+                assert_eq!(ad.endpoint, *b"NQAT");
+                assert_eq!(ad.key.to_bytes(), [7; 16]);
+                found = true;
+                break;
             }
         }
         let _ = browser.shutdown();
