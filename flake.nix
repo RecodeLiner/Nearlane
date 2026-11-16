@@ -40,6 +40,7 @@
             makeWrapper "${pkgs.python3}/bin/python3" "$out/bin/nearlane-import-google-oauth" \
               --add-flags "$out/libexec/nearlane/import-google-oauth.py"
             install -Dm644 packaging/org.nearlane.Nearlane.desktop "$out/share/applications/org.nearlane.Nearlane.desktop"
+            install -Dm644 apps/desktop/qml/icon.svg "$out/share/icons/hicolor/scalable/apps/org.nearlane.Nearlane.svg"
             install -Dm644 LICENSE-MIT "$out/share/licenses/nearlane/LICENSE-MIT"
             install -Dm644 LICENSE-APACHE "$out/share/licenses/nearlane/LICENSE-APACHE"
             install -Dm644 NOTICE "$out/share/licenses/nearlane/NOTICE"

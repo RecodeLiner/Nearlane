@@ -4,5 +4,6 @@ Name=Nearlane
 Comment=Independent nearby file sharing research prototype
 Comment[ru]=Независимый экспериментальный клиент обмена файлами поблизости
 Exec=nearlane-desktop
+Icon=org.nearlane.Nearlane
 Terminal=false
 Categories=Network;FileTransfer;

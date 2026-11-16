@@ -29,6 +29,11 @@ fn main() {
     engine_ref.load(&QUrl::from("qrc:/qt/qml/org/nearlane/app/qml/Main.qml"));
     if smoke {
         eprintln!("smoke: QML loaded");
+        assert!(
+            backend::ffi::application_icon_available(),
+            "Application/window icon must render from resources"
+        );
+        eprintln!("smoke: application identity and window icon checked");
     }
     if let Some(engine_ref) = engine.as_mut() {
         let base: std::pin::Pin<&mut QQmlEngine> = engine_ref.upcast_pin();

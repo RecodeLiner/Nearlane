@@ -17,6 +17,8 @@ pub mod ffi {
         #[namespace = "nearlane::desktop"]
         fn create_application() -> UniquePtr<QGuiApplication>;
         #[namespace = "nearlane::desktop"]
+        fn application_icon_available() -> bool;
+        #[namespace = "nearlane::desktop"]
         fn default_receive_directory() -> QString;
         #[namespace = "nearlane::desktop"]
         fn receive_by_default() -> bool;
