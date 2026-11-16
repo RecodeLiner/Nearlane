@@ -10,6 +10,7 @@ import tempfile
 
 
 CASES = {
+    "language-switch": dict(width=1040, height=900, dark=False, page=2, scene="ready", exerciseLocalization=True),
     "send-light": dict(width=1040, height=760, dark=False, page=0, scene="ready"),
     "send-dark": dict(width=1040, height=760, dark=True, page=0, scene="ready"),
     "send-selected": dict(width=1040, height=760, dark=True, page=0, scene="ready", fileName="nearlane-ui-test.txt", devices=["Тестовое устройство", "Ещё одно тестовое устройство"]),
@@ -35,6 +36,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--only", nargs="+", choices=CASES)
     parser.add_argument("--native", action="store_true")
+    parser.add_argument("--language", choices=["system", "ru", "en"], default="ru")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     output = args.output.resolve()
@@ -43,6 +45,7 @@ def main():
         config = Path(directory) / "synthetic.json"
         config.touch(mode=0o600)
         config.write_text(json.dumps({"client_id": "synthetic-design-preview"}))
+        (Path(directory) / "receiving.ini").write_text(f"[interface]\nlanguage={args.language}\n")
         for name in args.only or CASES:
             path = output / f"{name}.png"
             path.unlink(missing_ok=True)
@@ -73,6 +76,8 @@ def main():
             errors = ("ReferenceError", "TypeError", "Binding loop", "recursive rearrange", "Unable to assign", "failed to load", "Cannot assign", "is not a type", "no signal of the target matches")
             if result.returncode or not path.is_file() or "preview: saved synthetic UI" not in log or any(error in log for error in errors):
                 raise RuntimeError(f"{name} preview failed:\n{log}")
+            if settings.get("exerciseLocalization") and "preview: live language switching checked" not in log:
+                raise RuntimeError("Live language switching checks did not complete")
             if settings.get("exerciseNavigation") and "preview: navigation, resize continuity and Tab focus checked" not in log:
                 raise RuntimeError("Navigation and focus checks did not complete")
             print(f"PASS: {name} ({settings['width']} × {settings['height']})")

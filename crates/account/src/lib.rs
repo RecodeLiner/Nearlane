@@ -3,6 +3,7 @@
 //! A granted permission does not establish Quick Share device trust. This crate
 //! never advertises a device or enables Contacts/OwnDevices visibility.
 
+use nearlane_core::Text;
 mod config;
 mod exchange;
 mod identity;
@@ -61,26 +62,40 @@ pub enum LoginError {
     RefreshRejected,
 }
 
+impl LoginError {
+    /// Deferred, sanitized explanation for a localized presentation layer.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Configuration => {
+                Text::new("Local sign-in configuration is missing, invalid, or not private.")
+            }
+            Self::Listener => Text::new("Could not open a local browser callback listener."),
+            Self::Callback => Text::new("Could not validate the sign-in attempt."),
+            Self::Browser => Text::new("Could not open the system browser."),
+            Self::Denied => Text::new("Access was declined in the browser."),
+            Self::Cancelled => Text::new("Sign-in cancelled."),
+            Self::TimedOut => Text::new("Sign-in timed out. You can try again."),
+            Self::Network => Text::new("Could not reach Google's token endpoint securely."),
+            Self::TokenRejected => {
+                Text::new("Google rejected the token exchange. No session was enabled.")
+            }
+            Self::InvalidGrant => {
+                Text::new("Google did not return the required Quick Share permission.")
+            }
+            Self::WorkerStopped => Text::new("The sign-in worker stopped unexpectedly."),
+            Self::Busy => Text::new("A sign-in attempt is already in progress."),
+            Self::SecureStorage => Text::new(
+                "The system credential store is unavailable or locked. Unlock it and retry saved sign-in.",
+            ),
+            Self::RefreshRejected => {
+                Text::new("The saved Google permission expired or was revoked. Sign in again.")
+            }
+        }
+    }
+}
 impl fmt::Display for LoginError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Configuration => {
-                "Local sign-in configuration is missing, invalid, or not private."
-            }
-            Self::Listener => "Could not open a local browser callback listener.",
-            Self::Callback => "Could not validate the sign-in attempt.",
-            Self::Browser => "Could not open the system browser.",
-            Self::Denied => "Access was declined in the browser.",
-            Self::Cancelled => "Sign-in cancelled.",
-            Self::TimedOut => "Sign-in timed out. You can try again.",
-            Self::Network => "Could not reach Google's token endpoint securely.",
-            Self::TokenRejected => "Google rejected the token exchange. No session was enabled.",
-            Self::InvalidGrant => "Google did not return the required Quick Share permission.",
-            Self::WorkerStopped => "The sign-in worker stopped unexpectedly.",
-            Self::Busy => "A sign-in attempt is already in progress.",
-            Self::SecureStorage => "The system credential store is unavailable or locked. Unlock it and retry saved sign-in.",
-            Self::RefreshRejected => "The saved Google permission expired or was revoked. Sign in again.",
-        })
+        self.text().fmt(f)
     }
 }
 impl std::error::Error for LoginError {}
@@ -111,20 +126,25 @@ pub enum AccountStatus {
 impl AccountStatus {
     /// Short description suitable for a UI, with no sensitive values.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self {
-            Self::Unconfigured => "Local sign-in configuration is not available.".into(),
-            Self::Ready => "Ready to sign in through your browser.".into(),
-            Self::Restoring => "Restoring saved Google permission…".into(),
+            Self::Unconfigured => Text::new("Local sign-in configuration is not available."),
+            Self::Ready => Text::new("Ready to sign in through your browser."),
+            Self::Restoring => Text::new("Restoring saved Google permission…"),
             Self::WaitingForBrowser => {
-                "Complete sign-in in your browser. Choose a test account.".into()
+                Text::new("Complete sign-in in your browser. Choose a test account.")
             }
-            Self::Exchanging => "Checking the permission returned by Google…".into(),
-            Self::Authorized => {
-                "Quick Share permission granted. Receiving starts only when you enable it.".into()
-            }
-            Self::SignedOut => "Signed out. This device is hidden.".into(),
-            Self::Expired => "The in-memory session expired. Sign in again.".into(),
-            Self::Failed(error) => error.to_string(),
+            Self::Exchanging => Text::new("Checking the permission returned by Google…"),
+            Self::Authorized => Text::new(
+                "Quick Share permission granted. Receiving starts only when you enable it.",
+            ),
+            Self::SignedOut => Text::new("Signed out. This device is hidden."),
+            Self::Expired => Text::new("The in-memory session expired. Sign in again."),
+            Self::Failed(error) => error.text(),
         }
     }
 }

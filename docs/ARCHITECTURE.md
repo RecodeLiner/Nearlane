@@ -25,6 +25,19 @@ artifacts, and builds independent units in parallel. Incremental compilation is
 used by the dev profile. No global linker flags or static Qt configuration are
 required. Dynamic Qt linking is intentional.
 
+Bluetooth discovery uses Qt Bluetooth only in the desktop boundary, with native
+BlueZ/CoreBluetooth selected by Qt. Bounded BLE packet decoding, trusted hint
+matching and all file policy stay in portable Rust. The optional raw wake beacon
+is a separate platform adapter; macOS does not falsely inherit Linux capability.
+Darwin packaging includes an app bundle and Bluetooth permission metadata.
+The radio adapter never owns account grants or authorizes a file from a hint.
+
+The per-file policy is shared in core (64 GiB). The file stack maintains fixed
+64 KiB buffers, separate 30-second frame, 90-second file-progress idle and 24-hour
+total-transfer bounds. Only validated file progress renews idle time. Control
+traffic is limited per minute and cannot extend a stalled transfer. File frames
+are no longer charged to the old lifetime control-frame count.
+
 The initial Nix package is a single buildRustPackage derivation: its source changes
 rebuild that derivation rather than sharing the development target/ cache. Cargo
 workspace caching applies to local development and validation. Splitting immutable third-party
@@ -101,3 +114,21 @@ API provisioning or Google review may prevent future features; no such restricti
 is assumed proven until observed. The current publication/query path has worked
 in the authorized account session. macOS/Windows compile and hardware behavior must be tested
 on those operating systems. Rust portability does not abstract away their radios.
+
+## Localization
+
+The desktop owns QTranslator and locale preferences. UI text lives in two Qt TS
+catalogs (English and Russian), compiled with Linguist lrelease into embedded
+resources. QML uses the Ui context. Shared services expose deferred core::Text
+messages in the Backend context, alongside English CLI rendering. Templates and
+nested messages are translated before opaque literal arguments are inserted;
+account names, filenames and paths never enter a translation lookup or a second
+placeholder pass. No Qt dependency was introduced into shared crates.
+
+A saved system/ru/en setting is validated before application. Changing language
+retranslates existing QML bindings and refreshes statuses without restarting
+protocol jobs or account state. A pending notification is withdrawn and recreated
+with translated labels, preserving the service offer ID and consent gate.
+Platform notification action keys remain random and independent of labels.
+Native OS dialogs may follow the OS language; Qt-owned dialogs use available Qt
+module translations. macOS usage descriptions have en/ru InfoPlist.strings.

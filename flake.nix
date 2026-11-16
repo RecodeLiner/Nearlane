@@ -7,7 +7,7 @@
       each = nixpkgs.lib.genAttrs systems;
       packageFor = system: let
         pkgs = import nixpkgs { inherit system; };
-        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg ];
+        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.qt6.qtconnectivity ];
       in
         pkgs.rustPlatform.buildRustPackage {
           pname = "nearlane";
@@ -22,12 +22,13 @@
           cargoLock.lockFile = ./Cargo.lock;
           cargoBuildFlags = [ "-p" "nearlane-desktop" "-p" "nearlane-cli" ];
           cargoTestFlags = [ "--workspace" "--exclude" "nearlane-desktop" ];
-          nativeBuildInputs = [ pkgs.pkg-config pkgs.lld pkgs.qt6.wrapQtAppsHook ]
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.lld pkgs.qt6.qttools pkgs.qt6.wrapQtAppsHook ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
-          buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.stdenv.cc.cc.lib ]
+          buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.qt6.qtconnectivity pkgs.stdenv.cc.cc.lib ]
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.kdePackages.kirigami ];
           env.QMAKE = "${qtEnv}/bin/qmake";
           preBuild = ''export QMAKE="${qtEnv}/bin/qmake"'';
+          qtWrapperArgs = [ "--set" "NEARLANE_QT_TRANSLATIONS" "${pkgs.qt6.qttranslations}/translations" ];
           # Kirigami's StyleSelector reads QML_IMPORT_PATH itself, rather than
           # Nix's patched engine import paths. Give it the complete module before
           # the session's partial /run/current-system/sw tree (often styles only).
@@ -42,6 +43,20 @@
             install -Dm644 third_party/beto/LICENSE "$out/share/licenses/nearlane/beto-LICENSE"
             install -Dm644 third_party/beto/README.md "$out/share/licenses/nearlane/beto-PROVENANCE.md"
           '';
+          postFixup = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+            app="$out/Applications/Nearlane.app/Contents"
+            mkdir -p "$app/MacOS"
+            install -m644 packaging/macos/Info.plist "$app/Info.plist"
+            for language in en ru; do
+              install -Dm644 "packaging/macos/$language.lproj/InfoPlist.strings" "$app/Resources/$language.lproj/InfoPlist.strings"
+            done
+            if [ -f "$out/bin/.nearlane-desktop-wrapped" ]; then
+              cp "$out/bin/.nearlane-desktop-wrapped" "$app/MacOS/Nearlane"
+            else
+              cp "$out/bin/nearlane-desktop" "$app/MacOS/Nearlane"
+            fi
+            wrapQtApp "$app/MacOS/Nearlane"
+          '';
           meta = {
             description = "Independent Quick Share client research prototype";
             license = with pkgs.lib.licenses; [ mit asl20 ];
@@ -52,12 +67,13 @@
       packages = each (system: { default = packageFor system; });
       devShells = each (system: let
         pkgs = import nixpkgs { inherit system; };
-        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg ];
+        qtEnv = pkgs.qt6.env "nearlane-qt" [ pkgs.qt6.qtdeclarative pkgs.qt6.qtsvg pkgs.qt6.qtconnectivity ];
       in {
         default = pkgs.mkShell {
-          packages = with pkgs; [ cargo rustc rustfmt clippy pkg-config cmake ninja lld qt6.qtbase qt6.qtdeclarative qt6.wrapQtAppsHook ]
+          packages = with pkgs; [ cargo rustc rustfmt clippy pkg-config cmake ninja lld qt6.qtbase qt6.qtdeclarative qt6.qtconnectivity qt6.qttools qt6.wrapQtAppsHook ]
             ++ lib.optionals stdenv.isLinux [ kdePackages.kirigami ];
           env.QMAKE = "${qtEnv}/bin/qmake";
+          env.NEARLANE_QT_TRANSLATIONS = "${pkgs.qt6.qttranslations}/translations";
           shellHook = ''
             export QMAKE="${qtEnv}/bin/qmake"
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ qtEnv pkgs.stdenv.cc.cc.lib ]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

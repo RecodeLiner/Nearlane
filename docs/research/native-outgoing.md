@@ -38,7 +38,7 @@ plaintext public device name. Its certificate's encrypted device name is current
 Nearlane. It reassembles bounded BYTES fragments, services keep-alives during upload,
 validates IDs/ACKs and declines bandwidth redirection. Only the selected socket is used.
 Absolute deadlines also bound partial reads. Cancellation shuts down established IO.
-Initial scope: one regular file up to 64 MiB, IPv4 Wi-Fi LAN, no folder/resume support.
+Current scope: one regular file up to 64 GiB, IPv4 Wi-Fi LAN, no folder/resume support.
 Incoming reception is implemented separately; see native-incoming.md. Unix symlinks are
 refused.
 
@@ -84,14 +84,11 @@ version 4. Safe connection checkpoints are reported without recording handshake
 messages, account tokens or traffic. The UI/CLI continues to describe the missing
 receipt honestly; the observed on-device result is recorded here, not fabricated on the wire.
 
-The original Android client supports background reception in Your devices mode,
-including a screen-off receiver. Nearlane currently only browses Wi-Fi LAN;
-Bluetooth/BLE discovery and wake-up have not been implemented. Opening the
-dedicated Receive screen can temporarily expose a phone to everyone; it is not
-a requirement for private-mode compatibility and should not be used as a public
-fallback. Official documentation:
-https://support.google.com/android/answer/15728591
-https://support.google.com/android/answer/13801258
+Private BLE discovery is implemented and confirmed with the phone screen off.
+The Wi-Fi endpoint becomes selectable after unlocking in the recorded test.
+Bluetooth connection bootstrap and screen-off Wi-Fi negotiation are not yet
+implemented; see [bluetooth.md](bluetooth.md). Opening the dedicated Receive
+screen is not required and can temporarily expose the phone to everyone.
 
 ## Certificate removal
 

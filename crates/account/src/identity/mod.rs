@@ -1,4 +1,5 @@
 //! Fixed-origin Nearby Identity RPCs and in-memory own-device credentials.
+use nearlane_core::Text;
 mod context;
 mod proto;
 mod rpc;
@@ -60,26 +61,33 @@ pub enum IdentityError {
     /// The bounded background worker stopped.
     Worker,
 }
+impl IdentityError {
+    /// Deferred, sanitized explanation for a localized presentation layer.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Network => Text::new("Could not reach Nearby Identity securely."),
+            Self::RpcStatus(16) => {
+                Text::new("Nearby Identity did not accept the account token. Sign in again.")
+            }
+            Self::RpcStatus(7) => Text::new("Google denied access to Nearby Identity (gRPC 7)."),
+            Self::RpcStatus(code) => Text::with_args(
+                "Nearby Identity rejected the request (gRPC %1).",
+                [Text::literal(code)],
+            ),
+            Self::Encoding => Text::new("The private-device request could not be prepared."),
+            Self::Certificate(_) => Text::new("Device certificate validation failed."),
+            Self::Limit => Text::new("Certificate exchange exceeded a safety limit."),
+            Self::Cancelled => Text::new("Private-device setup was cancelled."),
+            Self::TimedOut => Text::new("Private-device setup timed out."),
+            Self::NoSession => Text::new("Sign in before preparing private devices."),
+            Self::Busy => Text::new("A private-device operation is already running."),
+            Self::Worker => Text::new("The private-device worker stopped unexpectedly."),
+        }
+    }
+}
 impl fmt::Display for IdentityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Network => f.write_str("Could not reach Nearby Identity securely."),
-            Self::RpcStatus(16) => {
-                f.write_str("Nearby Identity did not accept the account token. Sign in again.")
-            }
-            Self::RpcStatus(7) => f.write_str("Google denied access to Nearby Identity (gRPC 7)."),
-            Self::RpcStatus(code) => {
-                write!(f, "Nearby Identity rejected the request (gRPC {code}).")
-            }
-            Self::Encoding => f.write_str("The private-device request could not be prepared."),
-            Self::Certificate(_) => f.write_str("Device certificate validation failed."),
-            Self::Limit => f.write_str("Certificate exchange exceeded a safety limit."),
-            Self::Cancelled => f.write_str("Private-device setup was cancelled."),
-            Self::TimedOut => f.write_str("Private-device setup timed out."),
-            Self::NoSession => f.write_str("Sign in before preparing private devices."),
-            Self::Busy => f.write_str("A private-device operation is already running."),
-            Self::Worker => f.write_str("The private-device worker stopped unexpectedly."),
-        }
+        self.text().fmt(f)
     }
 }
 impl std::error::Error for IdentityError {}
@@ -104,13 +112,29 @@ pub enum PrivateStatus {
 impl PrivateStatus {
     /// Sanitized progress for the UI; Ready does not promise Android transfer.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self {
-            Self::Idle => "Own-device certificates have not been prepared.".into(),
-            Self::Preparing => "Preparing temporary certificates for your own devices…".into(),
-            Self::Ready(summary) => format!("This device is registered. Received {} own-device certificates ({} active; {} malformed records rejected). Live private verification is required for each connection.", summary.own_device_certificates, summary.active_certificates, summary.rejected_certificates),
-            Self::Failed(error) => error.to_string(),
-            Self::SigningOut => "Signed out locally. Asking Google to clear this device's published certificates…".into(),
-            Self::CleanupUnconfirmed => "Signed out locally. Clearing the temporary device credentials at Google was not confirmed; they may remain until expiry.".into(),
+            Self::Idle => Text::new("Own-device certificates have not been prepared."),
+            Self::Preparing => Text::new("Preparing temporary certificates for your own devices…"),
+            Self::Ready(summary) => Text::with_args(
+                "This device is registered. Received %1 own-device certificates (%2 active; %3 malformed records rejected). Live private verification is required for each connection.",
+                [
+                    Text::literal(summary.own_device_certificates),
+                    Text::literal(summary.active_certificates),
+                    Text::literal(summary.rejected_certificates),
+                ],
+            ),
+            Self::Failed(error) => error.text(),
+            Self::SigningOut => Text::new(
+                "Signed out locally. Asking Google to clear this device's published certificates…",
+            ),
+            Self::CleanupUnconfirmed => Text::new(
+                "Signed out locally. Clearing the temporary device credentials at Google was not confirmed; they may remain until expiry.",
+            ),
         }
     }
 }

@@ -1,10 +1,11 @@
+use nearlane_core::Text;
 use nearlane_transfer::SendJob;
 use std::path::PathBuf;
 
 pub(crate) struct Transfers {
     pub(crate) source: Option<PathBuf>,
     pub(crate) job: Option<SendJob>,
-    pub(crate) message: String,
+    pub(crate) message: Text,
     pub(crate) completed: bool,
 }
 impl Default for Transfers {
@@ -13,7 +14,7 @@ impl Default for Transfers {
             source: None,
             job: None,
             completed: false,
-            message: "Choose a file and send it to a discovered own device. One file up to 64 MiB."
+            message: "Choose a file and send it to a discovered own device. One file up to 64 GiB."
                 .into(),
         }
     }
@@ -40,15 +41,15 @@ impl Transfers {
         let Some(job) = &self.job else {
             return;
         };
-        self.message = job.progress().message();
+        self.message = job.progress().text();
         if let Some(result) = job.poll() {
             self.completed = result.is_ok();
             self.message = match result {
-                Ok(summary) => format!(
-                    "The verified receiving device acknowledged {} bytes.",
-                    summary.bytes
+                Ok(summary) => Text::with_args(
+                    "The verified receiving device acknowledged %1 bytes.",
+                    [Text::literal(summary.bytes)],
                 ),
-                Err(error) => error.to_string(),
+                Err(error) => error.text(),
             };
             self.job = None;
         }

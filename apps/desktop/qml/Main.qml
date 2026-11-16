@@ -20,6 +20,9 @@ ApplicationWindow {
     property int destination: 0
     readonly property bool wide: width >= 760
     property bool quitting: false
+    property bool viewReady: false
+    onDestinationChanged: { if (viewReady && !preview && !quitting) backendModel.set_send_surface(visible && destination === 0) }
+    onVisibleChanged: { if (viewReady && !preview && !quitting) backendModel.set_send_surface(visible && destination === 0) }
     property int themeOverride: -1
     property real textScale: 1
     readonly property var preview: backendModel.design_preview.length > 0 ? JSON.parse(backendModel.design_preview) : null
@@ -28,18 +31,18 @@ ApplicationWindow {
     property int savedFiles: backendModel.received_count
     readonly property var destinations: [
         {
-            label: qsTr("Отправить"),
-            title: qsTr("Отправить файл"),
+            label: qsTranslate("Ui", "Send"),
+            title: qsTranslate("Ui", "Send a file"),
             icon: "send"
         },
         {
-            label: qsTr("Получить"),
-            title: qsTr("Получить файлы"),
+            label: qsTranslate("Ui", "Receive"),
+            title: qsTranslate("Ui", "Receive files"),
             icon: "receive"
         },
         {
-            label: qsTr("Настройки"),
-            title: qsTr("Настройки"),
+            label: qsTranslate("Ui", "Settings"),
+            title: qsTranslate("Ui", "Settings"),
             icon: "settings"
         }
     ]
@@ -87,7 +90,7 @@ ApplicationWindow {
     function fallbackIncomingNotification() {
         if (incomingPending && !actionableNotification && !backendModel.smoke_test) {
             if (tray.available && tray.supportsMessages)
-                tray.showMessage(qsTr("Входящий файл"), qsTr("Ваше устройство предлагает файл. Откройте Nearlane, чтобы принять или отклонить его."), Platform.SystemTrayIcon.Information, 10000);
+                tray.showMessage(qsTranslate("Ui", "Incoming file"), qsTranslate("Ui", "Your device wants to send a file. Open Nearlane to accept or decline."), Platform.SystemTrayIcon.Information, 10000);
             else {
                 destination = 1;
                 showWindow();
@@ -101,13 +104,13 @@ ApplicationWindow {
     }
     onSavedFilesChanged: {
         if (savedFiles > 0 && !backendModel.smoke_test && tray.available && tray.supportsMessages)
-            tray.showMessage(qsTr("Файл получен"), qsTr("Файл сохранён в выбранную папку."), Platform.SystemTrayIcon.Information, 6000);
+            tray.showMessage(qsTranslate("Ui", "File received"), qsTranslate("Ui", "The file was saved to the selected folder."), Platform.SystemTrayIcon.Information, 6000);
     }
     Platform.SystemTrayIcon {
         id: tray
         visible: !backendModel.smoke_test || backendModel.tray_test
         icon.source: "qrc:/nearlane/icon.svg"
-        tooltip: backendModel.receiving_active ? qsTr("Nearlane · Приём от своих устройств") : qsTr("Nearlane · Работает в фоне")
+        tooltip: backendModel.receiving_active ? qsTranslate("Ui", "Nearlane · Receiving from your devices") : qsTranslate("Ui", "Nearlane · Running in the background")
         onActivated: function (reason) {
             if (reason === Platform.SystemTrayIcon.Trigger || reason === Platform.SystemTrayIcon.DoubleClick)
                 window.showWindow();
@@ -118,24 +121,24 @@ ApplicationWindow {
         }
         menu: Platform.Menu {
             Platform.MenuItem {
-                text: qsTr("Открыть Nearlane")
+                text: qsTranslate("Ui", "Open Nearlane")
                 onTriggered: window.showWindow()
             }
             Platform.MenuItem {
-                text: qsTr("Принимать от своих устройств")
+                text: qsTranslate("Ui", "Receive from your devices")
                 checkable: true
                 checked: backendModel.background_receiving
                 onTriggered: backendModel.configure_receiving(!backendModel.background_receiving, backendModel.confirm_each_file)
             }
             Platform.MenuItem {
-                text: qsTr("Искать устройства в фоне")
+                text: qsTranslate("Ui", "Find devices in the background")
                 checkable: true
                 checked: backendModel.continuous_discovery
                 onTriggered: backendModel.set_background_discovery(!backendModel.continuous_discovery)
             }
             Platform.MenuSeparator {}
             Platform.MenuItem {
-                text: qsTr("Выйти из приложения")
+                text: qsTranslate("Ui", "Quit")
                 onTriggered: window.quitApp()
             }
         }
@@ -216,7 +219,7 @@ ApplicationWindow {
                             }
                             UI.ActionButton {
                                 tokens: theme
-                                text: qsTr("Аккаунт")
+                                text: qsTranslate("Ui", "Account")
                                 symbolName: "lock"
                                 Layout.alignment: Qt.AlignRight
                                 onClicked: window.showAccountSettings()
@@ -226,7 +229,7 @@ ApplicationWindow {
                             tokens: theme
                             role: "label"
                             secondary: true
-                            text: backendModel.receiving_active ? qsTr("Приём от своих устройств включён") : backendModel.account_busy ? qsTr("Восстанавливаем вход…") : !backendModel.account_authorized ? qsTr("Подключите аккаунт в настройках") : qsTr("Приём на этом компьютере выключен")
+                            text: backendModel.receiving_active ? qsTranslate("Ui", "Receiving from your devices is enabled") : backendModel.account_busy ? qsTranslate("Ui", "Restoring sign-in…") : !backendModel.account_authorized ? qsTranslate("Ui", "Connect your account in Settings") : qsTranslate("Ui", "Receiving on this computer is off")
                             Layout.fillWidth: true
                         }
                     }
@@ -309,13 +312,13 @@ ApplicationWindow {
     }
     FileDialog {
         id: configDialog
-        title: qsTr("Конфигурация входа")
-        nameFilters: [qsTr("Файлы JSON (*.json)")]
+        title: qsTranslate("Ui", "Sign-in configuration")
+        nameFilters: [qsTranslate("Ui", "JSON files (*.json)")]
         onAccepted: backendModel.load_config(selectedFile)
     }
     FileDialog {
         id: sendDialog
-        title: qsTr("Выберите файл")
+        title: qsTranslate("Ui", "Choose a file")
         fileMode: FileDialog.OpenFile
         onAccepted: {
             sendPage.attemptedTransfer = false;
@@ -324,7 +327,7 @@ ApplicationWindow {
     }
     FolderDialog {
         id: receiveFolder
-        title: qsTr("Куда сохранять полученные файлы")
+        title: qsTranslate("Ui", "Where to save received files")
         onAccepted: backendModel.select_receive_directory(selectedFolder)
     }
     Timer {
@@ -336,8 +339,14 @@ ApplicationWindow {
 
     // Explicit smoke-only fixtures: no real login, discovery, files or decisions.
     Component.onCompleted: {
-        if (!preview)
+        viewReady = true;
+        if (!preview) {
+            backendModel.set_send_surface(visible && destination === 0);
             return;
+        }
+        applyPreview();
+    }
+    function applyPreview() {
         width = preview.width;
         height = preview.height;
         themeOverride = preview.dark ? 1 : 0;
@@ -352,11 +361,11 @@ ApplicationWindow {
         backendModel.own_devices = preview.devices || [];
         sendPage.selectedDevice = backendModel.own_devices.length > 0 ? 0 : -1;
         backendModel.discovery_busy = preview.scene === "loading";
-        backendModel.account_status = preview.scene === "signed-out" ? qsTr("Войдите, чтобы подключить свои устройства.") : preview.scene === "error" ? "Could not restore sign-in. Retry saved sign-in." : "Quick Share permission granted.";
-        backendModel.preferences_status = preview.scene === "error" ? qsTr("Не удалось сохранить настройки. Проверьте доступ к папке конфигурации.") : "";
+        backendModel.account_status = preview.scene === "signed-out" ? qsTranslate("Ui", "Sign in to connect your devices.") : preview.scene === "error" ? qsTranslate("Ui", "Could not restore sign-in. Retry saved sign-in.") : qsTranslate("Ui", "Quick Share permission granted.");
+        backendModel.preferences_status = preview.scene === "error" ? qsTranslate("Ui", "Could not save settings. Check access to the configuration folder.") : "";
         backendModel.incoming_offer = preview.offer || "";
         backendModel.receive_pending = preview.scene === "incoming";
-        backendModel.receive_status = preview.scene === "error" ? "Could not open the receiving port. Close another Quick Share receiver and retry." : "Ready to receive from your own devices.";
+        backendModel.receive_status = preview.scene === "error" ? qsTranslate("Ui", "Could not open the receiving port. Close another Quick Share receiver and retry.") : qsTranslate("Ui", "Ready to receive from your own devices.");
         backendModel.confirm_each_file = preview.scene === "incoming";
         backendModel.continuous_discovery = true;
     }
@@ -364,6 +373,23 @@ ApplicationWindow {
         interval: 650
         running: !!window.preview
         onTriggered: {
+            if (preview.exerciseLocalization) {
+                const original = backendModel.language;
+                for (const language of ["ru", "en"]) {
+                    backendModel.select_language(language);
+                    const label = language === "ru" ? "Отправить" : "Send";
+                    if (window.destinations[0].label !== label || backendModel.effective_language !== language)
+                        throw new Error("Live QML translation failed: " + language);
+                    if (!backendModel.status.startsWith(language === "ru" ? "Платформа:" : "Platform:"))
+                        throw new Error("Deferred backend translation failed: " + language);
+                }
+                backendModel.select_language("invalid-language");
+                if (backendModel.language !== "en")
+                    throw new Error("Invalid language was accepted");
+                backendModel.select_language(original);
+                window.applyPreview();
+                console.log("preview: live language switching checked");
+            }
             if (preview.exerciseNavigation) {
                 const selected = sendPage.selectedDevice;
                 const initialWidth = width;
@@ -407,6 +433,15 @@ ApplicationWindow {
         running: backendModel.smoke_test && !window.preview
         onTriggered: {
             backendModel.check_contacts();
+            const savedLanguage = backendModel.language;
+            backendModel.select_language("ru");
+            if (window.destinations[0].label !== "Отправить")
+                throw new Error("Russian translation did not load");
+            backendModel.select_language("en");
+            if (window.destinations[0].label !== "Send")
+                throw new Error("English translation did not load");
+            backendModel.select_language(savedLanguage);
+            console.log("smoke: live translations checked");
             if (backendModel.tray_test) {
                 if (!tray.available)
                     throw new Error("System tray is not available");

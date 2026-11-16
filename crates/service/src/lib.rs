@@ -1,4 +1,5 @@
 //! Application state shared by CLI and Qt, with explicit private-mode gating.
+use nearlane_core::Text;
 mod certificates;
 mod discovery;
 mod receiving;
@@ -248,6 +249,61 @@ impl Service {
     pub fn own_device_names(&self) -> Vec<&str> {
         self.discovery.devices.iter().map(|d| d.name()).collect()
     }
+    /// Bounded BLE hint input from an OS adapter. It never creates a routable
+    /// transfer target; Wi-Fi discovery and live proofs are still required.
+    pub fn observe_bluetooth(&mut self, data: &[u8]) {
+        if !self.continuous_discovery
+            || self.account.status() != AccountStatus::Authorized
+            || !matches!(self.account.private_status(), PrivateStatus::Ready(_))
+        {
+            return;
+        }
+        let certificates = self
+            .account
+            .own_device_certificates()
+            .into_iter()
+            .filter(|c| !self.account.is_local_certificate(c.id()))
+            .collect::<Vec<_>>();
+        if let Some((certificate, name)) = nearlane_discovery::match_bluetooth(data, &certificates)
+        {
+            self.discovery
+                .bluetooth
+                .retain(|d| d.seen.elapsed() < std::time::Duration::from_secs(120));
+            if let Some(old) = self
+                .discovery
+                .bluetooth
+                .iter_mut()
+                .find(|d| d.certificate.id() == certificate.id())
+            {
+                old.seen = std::time::Instant::now();
+            } else if self.discovery.bluetooth.len() < 32 {
+                self.discovery.bluetooth.push(discovery::BleObservation {
+                    certificate,
+                    name,
+                    seen: std::time::Instant::now(),
+                });
+            }
+        }
+    }
+    /// Verified own-device discovery names still waiting for a Wi-Fi endpoint.
+    pub fn bluetooth_device_names(&self) -> Vec<&str> {
+        if self.account.status() != AccountStatus::Authorized {
+            return Vec::new();
+        }
+        self.discovery
+            .bluetooth
+            .iter()
+            .filter(|d| {
+                d.seen.elapsed() < std::time::Duration::from_secs(120)
+                    && !self
+                        .discovery
+                        .devices
+                        .iter()
+                        .any(|p| p.certificate().id() == d.certificate.id())
+            })
+            .map(|d| d.name.as_str())
+            .collect()
+    }
 
     /// Remember only the explicitly selected local path; opening and validation
     /// happen on the transfer worker after an explicit recipient selection.
@@ -321,10 +377,10 @@ impl Service {
         self.pending_send = None;
         match nearlane_transfer::SendJob::start(peer, identity, path) {
             Ok(job) => {
-                self.transfers.message = job.progress().message();
+                self.transfers.message = job.progress().text();
                 self.transfers.job = Some(job);
             }
-            Err(error) => self.transfers.message = error.to_string(),
+            Err(error) => self.transfers.message = error.text(),
         }
     }
     /// Stop IO and discard late transfer results without changing visibility.
@@ -420,13 +476,13 @@ impl Service {
                 self.receiving.enabled = true;
                 self.receiving.decision_sent = false;
                 self.receiving.generation = generation;
-                self.receiving.message = job.phase().message();
+                self.receiving.message = job.phase().text();
                 self.receiving.job = Some(job);
             }
             Err(error) => {
                 self.receiving.enabled = false;
                 self.receiving.failed = true;
-                self.receiving.message = error.to_string();
+                self.receiving.message = error.text();
             }
         }
     }
@@ -442,7 +498,11 @@ impl Service {
         self.receiving.enabled || self.receiving.job.is_some()
     }
     /// Safe receiver phase or saved-file outcome.
-    pub fn receive_status(&self) -> &str {
+    pub fn receive_status(&self) -> String {
+        self.receiving.message.to_string()
+    }
+    /// Deferred reception status, preserving translation parameters.
+    pub fn receive_text(&self) -> &Text {
         &self.receiving.message
     }
     /// Metadata of an own device that passed live mutual private proofs.
@@ -482,7 +542,11 @@ impl Service {
         self.receiving.count
     }
     /// Plain phase/status without paths, account identifiers or keys.
-    pub fn transfer_status(&self) -> &str {
+    pub fn transfer_status(&self) -> String {
+        self.transfers.message.to_string()
+    }
+    /// Deferred sending status, preserving translation parameters.
+    pub fn transfer_text(&self) -> &Text {
         &self.transfers.message
     }
 
@@ -508,6 +572,7 @@ impl Service {
                 };
                 CertificateRow {
                     number: index + 1,
+                    local: self.account.is_local_certificate(cert.id()),
                     device,
                     starts_at: cert.starts_at(),
                     expires_at: cert.expires_at(),
@@ -565,14 +630,20 @@ impl Service {
 
     /// A truthful status suitable for display without exposing private data.
     pub fn status(&self) -> String {
-        format!(
-            "Platform: {:?}. {} Experimental private file transfers over Wi-Fi LAN.",
-            nearlane_platform::current(),
-            if self.receiving_active() {
-                "Private receiver is enabled."
-            } else {
-                "Hidden."
-            }
+        self.status_text().to_string()
+    }
+    /// Deferred platform/visibility status for localized presentation.
+    pub fn status_text(&self) -> Text {
+        Text::with_args(
+            "Platform: %1. %2 Experimental private file transfers over Wi-Fi LAN.",
+            [
+                Text::literal(format!("{:?}", nearlane_platform::current())),
+                Text::new(if self.receiving_active() {
+                    "Private receiver is enabled."
+                } else {
+                    "Hidden."
+                }),
+            ],
         )
     }
 }
@@ -606,6 +677,17 @@ mod tests {
         assert!(!service.background_receiving());
         assert!(service.confirm_each_file());
         assert!(!service.receiving_active());
+    }
+    #[test]
+    fn unauthenticated_bluetooth_input_cannot_create_a_transfer_target() {
+        let mut service = Service::default();
+        service.set_continuous_discovery(true);
+        service.observe_bluetooth(&[0xff; 512]);
+        assert!(service.bluetooth_device_names().is_empty());
+        assert!(service.own_device_names().is_empty());
+        assert_eq!(service.visibility(), Visibility::Hidden);
+        service.sign_out();
+        assert!(service.bluetooth_device_names().is_empty());
     }
     #[test]
     fn continuous_discovery_waits_for_login_and_can_be_stopped_without_a_network() {

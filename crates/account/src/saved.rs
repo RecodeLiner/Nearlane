@@ -2,6 +2,7 @@
 //! cannot overtake sign-out; generation checks discard late authentication events.
 use crate::{ClientConfig, LoginError};
 use nearlane_auth::TokenGrant;
+use nearlane_core::Text;
 use nearlane_platform::credentials::{SecretStore, SystemStore};
 use std::{fmt, sync::mpsc};
 use zeroize::{Zeroize as _, Zeroizing};
@@ -36,18 +37,41 @@ pub enum SavedLoginStatus {
 impl SavedLoginStatus {
     /// Plain interface explanation of persistence and its limitations.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self {
-            Self::NotSaved => "Sign in once to remember this account in the system credential store.".into(),
-            Self::Restoring => "Restoring saved sign-in through the system credential store…".into(),
-            Self::Refreshing => "Renewing access automatically…".into(),
-            Self::Saving => "Saving offline access in the system credential store…".into(),
-            Self::Saved => "Sign-in is remembered in the system credential store. Access renews automatically.".into(),
-            Self::MissingRefreshToken => "This session is temporary: Google did not issue offline access. Sign out and sign in again to request it.".into(),
-            Self::Unavailable => "The system credential store is unavailable or locked. Sign-in could not be remembered; no token file was created.".into(),
-            Self::RestoreFailed(_) => "Automatic sign-in could not complete. The saved grant was kept; retry or sign out.".into(),
-            Self::Paused => "Saved sign-in is paused for this run. Retry or sign out to forget it.".into(),
-            Self::Clearing => "Signed out locally. Removing saved sign-in from the system credential store…".into(),
-            Self::ClearFailed => "Signed out locally, but removing saved sign-in was not confirmed. Keep the app open and retry Sign out after unlocking the credential store.".into(),
+            Self::NotSaved => {
+                Text::new("Sign in once to remember this account in the system credential store.")
+            }
+            Self::Restoring => {
+                Text::new("Restoring saved sign-in through the system credential store…")
+            }
+            Self::Refreshing => Text::new("Renewing access automatically…"),
+            Self::Saving => Text::new("Saving offline access in the system credential store…"),
+            Self::Saved => Text::new(
+                "Sign-in is remembered in the system credential store. Access renews automatically.",
+            ),
+            Self::MissingRefreshToken => Text::new(
+                "This session is temporary: Google did not issue offline access. Sign out and sign in again to request it.",
+            ),
+            Self::Unavailable => Text::new(
+                "The system credential store is unavailable or locked. Sign-in could not be remembered; no token file was created.",
+            ),
+            Self::RestoreFailed(_) => Text::new(
+                "Automatic sign-in could not complete. The saved grant was kept; retry or sign out.",
+            ),
+            Self::Paused => {
+                Text::new("Saved sign-in is paused for this run. Retry or sign out to forget it.")
+            }
+            Self::Clearing => Text::new(
+                "Signed out locally. Removing saved sign-in from the system credential store…",
+            ),
+            Self::ClearFailed => Text::new(
+                "Signed out locally, but removing saved sign-in was not confirmed. Keep the app open and retry Sign out after unlocking the credential store.",
+            ),
         }
     }
 }

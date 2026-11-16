@@ -28,11 +28,32 @@ pub mod ffi {
         fn save_receive_preferences(enabled: bool, confirm: bool, directory: &QString) -> bool;
         #[namespace = "nearlane::desktop"]
         fn quit_application();
+        include!("i18n.h");
+        #[namespace = "nearlane::desktop"]
+        fn language_preference() -> QString;
+        #[namespace = "nearlane::desktop"]
+        fn effective_language() -> QString;
+        #[namespace = "nearlane::desktop"]
+        fn install_language(preference: &QString);
+        #[namespace = "nearlane::desktop"]
+        fn change_language(preference: &QString) -> bool;
+        #[namespace = "nearlane::desktop"]
+        fn translate_text(source: &QString) -> QString;
+        include!("bluetooth.h");
+        #[namespace = "nearlane::desktop"]
+        type BluetoothDiscovery;
+        #[namespace = "nearlane::desktop"]
+        fn create_bluetooth_discovery() -> UniquePtr<BluetoothDiscovery>;
+        fn set_scanning(self: Pin<&mut BluetoothDiscovery>, enabled: bool);
+        fn scan_status(self: &BluetoothDiscovery) -> i32;
+        fn drain_advertisements(self: Pin<&mut BluetoothDiscovery>) -> QStringList;
     }
     extern "RustQt" {
         #[qobject]
         #[qml_element]
         #[qproperty(QString, status)]
+        #[qproperty(QString, language)]
+        #[qproperty(QString, effective_language)]
         #[qproperty(bool, smoke_test)]
         #[qproperty(bool, tray_test)]
         #[qproperty(QString, design_preview)]
@@ -46,6 +67,8 @@ pub mod ffi {
         #[qproperty(bool, discovery_busy)]
         #[qproperty(bool, discovery_available)]
         #[qproperty(QStringList, own_devices)]
+        #[qproperty(QStringList, bluetooth_devices)]
+        #[qproperty(QString, bluetooth_status)]
         #[qproperty(QString, saved_login_status)]
         #[qproperty(bool, login_remembered)]
         #[qproperty(bool, login_cancellable)]
@@ -107,17 +130,26 @@ pub mod ffi {
         #[qinvokable]
         fn configure_receiving(self: Pin<&mut Backend>, enabled: bool, confirm: bool);
         #[qinvokable]
+        fn set_send_surface(self: Pin<&mut Backend>, visible: bool);
+        #[qinvokable]
         fn shutdown(self: Pin<&mut Backend>);
+        #[qinvokable]
+        fn select_language(self: Pin<&mut Backend>, language: &QString);
     }
 }
 
+use crate::i18n::{text, tr};
 use cxx_qt_lib::{DateFormat, QDateTime, QString, QStringList, QTimeZone, QUrl};
+use nearlane_core::Text;
 use nearlane_core::Visibility;
 use nearlane_service::{AccountStatus, DiscoveryStatus, LoginError, PrivateStatus, Service};
 use std::pin::Pin;
 
 /// State exposed to QML contains no credentials.
 pub struct BackendRust {
+    language: QString,
+    effective_language: QString,
+    preferences_failed: bool,
     status: QString,
     smoke_test: bool,
     tray_test: bool,
@@ -132,6 +164,10 @@ pub struct BackendRust {
     discovery_busy: bool,
     discovery_available: bool,
     own_devices: QStringList,
+    bluetooth_devices: QStringList,
+    bluetooth_status: QString,
+    send_surface: bool,
+    bluetooth: crate::bluetooth::Discovery,
     saved_login_status: QString,
     login_remembered: bool,
     login_cancellable: bool,
@@ -175,7 +211,10 @@ impl Default for BackendRust {
         let confirm_each_file = smoke_test || ffi::confirm_received_files();
         service.set_receiving_preferences(background_receiving, confirm_each_file);
         Self {
-            status: QString::from(service.status().as_str()),
+            language: ffi::language_preference(),
+            effective_language: ffi::effective_language(),
+            preferences_failed: false,
+            status: text(&service.status_text()),
             smoke_test,
             tray_test: smoke_test && std::env::var_os("NEARLANE_TRAY_SMOKE_TEST").is_some(),
             design_preview: QString::from(
@@ -186,25 +225,29 @@ impl Default for BackendRust {
                 }
                 .as_str(),
             ),
-            account_status: QString::from(service.account_status().message().as_str()),
+            account_status: text(&service.account_status().text()),
             account_configured: service.account_configured(),
             account_busy: false,
             account_authorized: false,
-            private_status: QString::from(service.private_status().message().as_str()),
+            private_status: text(&service.private_status().text()),
             private_busy: false,
-            discovery_status: QString::from(service.discovery_status().message().as_str()),
+            discovery_status: text(&service.discovery_status().text()),
             discovery_busy: false,
             discovery_available: false,
             own_devices: QStringList::default(),
-            saved_login_status: QString::from(service.saved_login_status().message().as_str()),
+            bluetooth_devices: QStringList::default(),
+            bluetooth_status: QString::default(),
+            send_surface: false,
+            bluetooth: crate::bluetooth::Discovery::default(),
+            saved_login_status: text(&service.saved_login_status().text()),
             login_remembered: service.has_saved_login(),
             login_cancellable: false,
             certificate_rows: QStringList::default(),
             selected_send_name: QString::default(),
-            transfer_status: QString::from(service.transfer_status()),
+            transfer_status: text(service.transfer_text()),
             transfer_busy: false,
             receive_directory: QString::from(service.receive_directory().as_str()),
-            receive_status: QString::from(service.receive_status()),
+            receive_status: text(service.receive_text()),
             incoming_offer: QString::default(),
             receiving_active: false,
             background_receiving,
@@ -223,16 +266,29 @@ impl Default for BackendRust {
 impl ffi::Backend {
     fn update_account(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
-        {
+        let bluetooth_status = {
             let mut state = self.as_mut().rust_mut();
             let enabled = !state.smoke_test;
+            let foreground = state.send_surface;
             let state = &mut *state;
             state.notifications.update(&mut state.service, enabled);
-        }
+            state
+                .bluetooth
+                .update(&mut state.service, enabled, foreground)
+        };
+        let bluetooth_devices = self
+            .rust()
+            .service
+            .bluetooth_device_names()
+            .into_iter()
+            .map(QString::from)
+            .collect::<QStringList>();
+        self.as_mut().set_bluetooth_status(text(&bluetooth_status));
+        self.as_mut().set_bluetooth_devices(bluetooth_devices);
         let account = self.rust().service.account_status();
         let configured = self.rust().service.account_configured();
         let busy = self.rust().service.account_busy();
-        let private_status = self.rust().service.private_status().message();
+        let private_status = self.rust().service.private_status().text();
         let private_busy = self.rust().service.private_busy();
         let discovery = self.rust().service.discovery_status();
         let available = account == AccountStatus::Authorized
@@ -247,13 +303,13 @@ impl ffi::Backend {
             .into_iter()
             .map(QString::from)
             .collect::<QStringList>();
-        let saved = self.rust().service.saved_login_status().message();
+        let saved = self.rust().service.saved_login_status().text();
         let remembered = self.rust().service.has_saved_login();
-        let transfer_status = self.rust().service.transfer_status().to_owned();
+        let transfer_status = self.rust().service.transfer_text().clone();
         let transfer_busy = self.rust().service.transfer_busy();
         let selected_send_name = self.rust().service.selected_send_name();
         let receive_directory = self.rust().service.receive_directory();
-        let receive_status = self.rust().service.receive_status().to_owned();
+        let receive_status = self.rust().service.receive_text().clone();
         let receiving_active = self.rust().service.receiving_active();
         let background_receiving = self.rust().service.background_receiving();
         let confirm_each_file = self.rust().service.confirm_each_file();
@@ -263,9 +319,18 @@ impl ffi::Backend {
         let continuous_discovery = self.rust().service.continuous_discovery();
         let received_count = self.rust().service.received_count();
         let incoming_offer = offer
-            .map(|o| format!("{}\n{}\n{} bytes", o.sender, o.name, o.bytes))
+            .map(|o| {
+                text(&Text::with_args(
+                    "%1\n%2\n%3 bytes",
+                    [
+                        Text::literal(o.sender),
+                        Text::literal(o.name),
+                        Text::literal(o.bytes),
+                    ],
+                ))
+            })
             .unwrap_or_default();
-        let status = self.rust().service.status();
+        let status = self.rust().service.status_text();
         let zone = QTimeZone::system_time_zone();
         let rows = self
             .rust()
@@ -280,46 +345,45 @@ impl ffi::Backend {
                                 .format_enum(DateFormat::ISODate)
                                 .to_string()
                         })
-                        .unwrap_or_else(|| "Time unavailable".into())
+                        .unwrap_or_else(|| tr("Time unavailable").to_string())
                 };
-                let name = row
-                    .device
-                    .as_deref()
-                    .unwrap_or("Device name encrypted / not discovered");
-                QString::from(
-                    format!(
-                        "Certificate {} - {}\n{}\n{} → {}",
-                        row.number,
-                        if row.active {
+                let name = if row.local {
+                    Text::new("This computer (Nearlane)")
+                } else {
+                    row.device
+                        .as_deref()
+                        .map(Text::literal)
+                        .unwrap_or_else(|| Text::new("Device name encrypted / not discovered"))
+                };
+                text(&Text::with_args(
+                    "Certificate %1 - %2\n%3\n%4 → %5",
+                    [
+                        Text::literal(row.number),
+                        Text::new(if row.active {
                             "active"
                         } else {
                             "outside current validity"
-                        },
+                        }),
                         name,
-                        date(row.starts_at),
-                        date(row.expires_at)
-                    )
-                    .as_str(),
-                )
+                        Text::literal(date(row.starts_at)),
+                        Text::literal(date(row.expires_at)),
+                    ],
+                ))
             })
             .collect::<QStringList>();
-        self.as_mut()
-            .set_account_status(QString::from(account.message().as_str()));
+        self.as_mut().set_account_status(text(&account.text()));
         self.as_mut().set_account_configured(configured);
         self.as_mut().set_account_busy(busy);
         self.as_mut()
             .set_account_authorized(account == AccountStatus::Authorized);
-        self.as_mut()
-            .set_private_status(QString::from(private_status.as_str()));
+        self.as_mut().set_private_status(text(&private_status));
         self.as_mut().set_private_busy(private_busy);
-        self.as_mut()
-            .set_discovery_status(QString::from(discovery.message().as_str()));
+        self.as_mut().set_discovery_status(text(&discovery.text()));
         self.as_mut()
             .set_discovery_busy(discovery == DiscoveryStatus::Searching);
         self.as_mut().set_discovery_available(available);
         self.as_mut().set_own_devices(devices);
-        self.as_mut()
-            .set_saved_login_status(QString::from(saved.as_str()));
+        self.as_mut().set_saved_login_status(text(&saved));
         self.as_mut().set_login_remembered(remembered);
         self.as_mut().set_login_cancellable(matches!(
             account,
@@ -328,15 +392,12 @@ impl ffi::Backend {
         self.as_mut().set_certificate_rows(rows);
         self.as_mut()
             .set_selected_send_name(QString::from(selected_send_name.as_str()));
-        self.as_mut()
-            .set_transfer_status(QString::from(transfer_status.as_str()));
+        self.as_mut().set_transfer_status(text(&transfer_status));
         self.as_mut().set_transfer_busy(transfer_busy);
         self.as_mut()
             .set_receive_directory(QString::from(receive_directory.as_str()));
-        self.as_mut()
-            .set_receive_status(QString::from(receive_status.as_str()));
-        self.as_mut()
-            .set_incoming_offer(QString::from(incoming_offer.as_str()));
+        self.as_mut().set_receive_status(text(&receive_status));
+        self.as_mut().set_incoming_offer(incoming_offer);
         self.as_mut().set_receiving_active(receiving_active);
         self.as_mut().set_background_receiving(background_receiving);
         self.as_mut().set_confirm_each_file(confirm_each_file);
@@ -348,7 +409,7 @@ impl ffi::Backend {
         self.as_mut().set_receive_pending(receive_pending);
         self.as_mut().set_continuous_discovery(continuous_discovery);
         self.as_mut().set_received_count(received_count);
-        self.set_status(QString::from(status.as_str()));
+        self.set_status(text(&status));
     }
 
     /// Start an explicitly requested login in the system browser; QML never sees the URL.
@@ -520,6 +581,12 @@ impl ffi::Backend {
         self.as_mut().save_preferences();
         self.update_account();
     }
+    /// Only a visible foreground Send screen may request the silent BLE hint.
+    pub fn set_send_surface(mut self: Pin<&mut Self>, visible: bool) {
+        use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().send_surface = visible;
+        self.update_account();
+    }
     fn save_preferences(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
         if self.rust().smoke_test {
@@ -531,16 +598,40 @@ impl ffi::Backend {
             service.confirm_each_file(),
             &QString::from(service.receive_directory().as_str()),
         );
-        self.as_mut()
-            .set_preferences_status(QString::from(if saved {
-                ""
-            } else {
-                "Could not save settings. These changes apply only until the app closes."
-            }));
+        self.as_mut().rust_mut().preferences_failed = !saved;
+        self.update_preferences_status();
     }
+    fn update_preferences_status(mut self: Pin<&mut Self>) {
+        use cxx_qt::CxxQtType as _;
+        let status = if self.rust().preferences_failed {
+            tr("Could not save settings. These changes apply only until the app closes.")
+        } else {
+            QString::default()
+        };
+        self.as_mut().set_preferences_status(status);
+    }
+    /// Persist a validated UI language and retranslate without restarting IO.
+    pub fn select_language(mut self: Pin<&mut Self>, language: &QString) {
+        use cxx_qt::CxxQtType as _;
+        let value = language.to_string();
+        if !matches!(value.as_str(), "system" | "ru" | "en") {
+            return;
+        }
+        let saved = ffi::change_language(language);
+        self.as_mut().rust_mut().preferences_failed = !saved;
+        self.as_mut().set_language(language.clone());
+        self.as_mut()
+            .set_effective_language(ffi::effective_language());
+        // Existing offers keep their identity/consent; only their presentation changes.
+        self.as_mut().rust_mut().notifications.clear();
+        self.as_mut().update_preferences_status();
+        self.update_account();
+    }
+
     /// Stop sharing workers on Quit without deleting the saved account grant.
     pub fn shutdown(mut self: Pin<&mut Self>) {
         use cxx_qt::CxxQtType as _;
+        self.as_mut().rust_mut().bluetooth.stop();
         self.as_mut().rust_mut().notifications.clear();
         self.as_mut().rust_mut().service.cancel_discovery();
         self.as_mut().rust_mut().service.stop_receiving();
@@ -556,11 +647,11 @@ impl ffi::Backend {
             .service
             .set_visibility(Visibility::Contacts)
         {
-            Ok(()) => "Contacts are available.",
-            Err(_) => "Contacts are not available yet.",
+            Ok(()) => tr("Contacts are available."),
+            Err(_) => tr("Contacts are not available yet."),
         };
         let smoke_test = self.rust().smoke_test;
-        self.as_mut().set_status(QString::from(status));
+        self.as_mut().set_status(status);
         if smoke_test {
             eprintln!("smoke: policy checked; device remains hidden");
             self.smoke_account_check();
@@ -571,6 +662,7 @@ impl ffi::Backend {
         use cxx_qt::CxxQtType as _;
         if let Ok(phase) = std::env::var("NEARLANE_PREFERENCES_SMOKE_TEST") {
             if phase == "write" {
+                assert!(ffi::change_language(&QString::from("ru")));
                 assert!(ffi::receive_by_default());
                 assert!(!ffi::confirm_received_files());
                 assert!(ffi::save_receive_preferences(
@@ -579,6 +671,12 @@ impl ffi::Backend {
                     &QString::from("synthetic-preference-folder")
                 ));
             }
+            assert_eq!(ffi::language_preference().to_string(), "ru");
+            assert_eq!(ffi::effective_language().to_string(), "ru");
+            self.as_mut().set_language(ffi::language_preference());
+            self.as_mut()
+                .set_effective_language(ffi::effective_language());
+            eprintln!("smoke: language preference persisted; synthetic settings only");
             assert!(!ffi::receive_by_default());
             assert!(ffi::confirm_received_files());
             assert_eq!(

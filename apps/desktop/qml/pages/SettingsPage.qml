@@ -28,30 +28,63 @@ ScrollView {
         UI.BodyText {
             tokens: page.tokens
             role: "title"
-            text: qsTr("Приём и обнаружение")
+            text: qsTranslate("Ui", "Language")
+            Layout.fillWidth: true
+        }
+        ComboBox {
+            id: languagePicker
+            Layout.fillWidth: true
+            font.pointSize: page.tokens.body
+            textRole: "label"
+            valueRole: "code"
+            model: [
+                { code: "system", label: qsTranslate("Ui", "System default") },
+                { code: "ru", label: "Русский" },
+                { code: "en", label: "English" }
+            ]
+            currentIndex: Math.max(0, ["system", "ru", "en"].indexOf(page.backend.language))
+            Accessible.name: qsTranslate("Ui", "Interface language")
+            onActivated: page.backend.select_language(currentValue)
+        }
+        UI.BodyText {
+            tokens: page.tokens
+            secondary: true
+            role: "label"
+            text: qsTranslate("Ui", "The language changes immediately and is remembered for next time.")
+            Layout.fillWidth: true
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 1
+            color: page.tokens.outlineVariant
+        }
+        UI.BodyText {
+            tokens: page.tokens
+            role: "title"
+            text: qsTranslate("Ui", "Receiving and discovery")
             Layout.fillWidth: true
         }
         UI.SettingRow {
             tokens: page.tokens
             Layout.fillWidth: true
-            title: qsTr("Принимать от своих устройств")
-            description: qsTr("Включать приём после входа и продолжать работу в трее.")
+            title: qsTranslate("Ui", "Receive from your devices")
+            description: qsTranslate("Ui", "Enable receiving after sign-in and keep running in the system tray.")
             checked: page.backend.background_receiving
             onToggled: value => page.backend.configure_receiving(value, page.backend.confirm_each_file)
         }
         UI.SettingRow {
             tokens: page.tokens
             Layout.fillWidth: true
-            title: qsTr("Спрашивать перед получением")
-            description: qsTr("Кнопки «Принять» и «Отклонить» в окне и уведомлении.")
+            title: qsTranslate("Ui", "Ask before receiving")
+            description: qsTranslate("Ui", "Show Accept and Decline buttons in the window and notification.")
             checked: page.backend.confirm_each_file
             onToggled: value => page.backend.configure_receiving(page.backend.background_receiving, value)
         }
         UI.SettingRow {
             tokens: page.tokens
             Layout.fillWidth: true
-            title: qsTr("Искать устройства в фоне")
-            description: qsTr("Обновлять список устройств вашего аккаунта в локальной сети.")
+            title: qsTranslate("Ui", "Find devices in the background")
+            description: qsTranslate("Ui", "Discover devices over Wi-Fi and Bluetooth. Transfer files over Wi-Fi.")
             checked: page.backend.continuous_discovery
             onToggled: value => page.backend.set_background_discovery(value)
         }
@@ -69,7 +102,7 @@ ScrollView {
         }
         UI.BodyText {
             tokens: page.tokens
-            text: qsTr("Сохранять файлы в")
+            text: qsTranslate("Ui", "Save files to")
             role: "title"
             Layout.fillWidth: true
         }
@@ -81,7 +114,7 @@ ScrollView {
         }
         UI.ActionButton {
             tokens: page.tokens
-            text: qsTr("Изменить папку")
+            text: qsTranslate("Ui", "Change folder")
             symbolName: "folder"
             enabled: !page.backend.receiving_active
             onClicked: page.chooseFolder()
@@ -90,7 +123,7 @@ ScrollView {
             tokens: page.tokens
             secondary: true
             role: "label"
-            text: page.backend.receiving_active ? qsTr("Чтобы изменить папку, сначала выключите приём выше.") : qsTr("Папка и параметры приёма сохраняются между запусками.")
+            text: page.backend.receiving_active ? qsTranslate("Ui", "To change the folder, first turn off receiving above.") : qsTranslate("Ui", "The folder and receiving preferences are remembered between sessions.")
             Layout.fillWidth: true
         }
         Rectangle {
@@ -101,19 +134,19 @@ ScrollView {
         UI.BodyText {
             id: accountHeading
             tokens: page.tokens
-            text: qsTr("Google-аккаунт")
+            text: qsTranslate("Ui", "Google account")
             role: "title"
             Layout.fillWidth: true
         }
         UI.BodyText {
             tokens: page.tokens
-            text: page.backend.account_authorized ? qsTr("Аккаунт подключён") : page.backend.account_busy ? qsTr("Выполняется вход…") : qsTr("Аккаунт не подключён")
+            text: page.backend.account_authorized ? qsTranslate("Ui", "Account connected") : page.backend.account_busy ? qsTranslate("Ui", "Signing in…") : qsTranslate("Ui", "Account not connected")
             Layout.fillWidth: true
         }
         UI.BodyText {
             tokens: page.tokens
             secondary: true
-            text: qsTr("На телефоне и компьютере нужен один аккаунт. Nearlane запоминает вход в системном хранилище учётных данных.")
+            text: qsTranslate("Ui", "Use the same account on your phone and computer. Nearlane remembers your sign-in in the system credential store.")
             Layout.fillWidth: true
         }
         Flow {
@@ -121,7 +154,7 @@ ScrollView {
             spacing: 8
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Войти через Google")
+                text: qsTranslate("Ui", "Sign in with Google")
                 primary: true
                 visible: !page.backend.account_authorized && !page.backend.login_remembered
                 enabled: page.backend.account_configured && !page.backend.account_busy
@@ -129,20 +162,20 @@ ScrollView {
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Повторить вход")
+                text: qsTranslate("Ui", "Retry sign-in")
                 visible: page.backend.login_remembered && !page.backend.account_authorized
                 enabled: !page.backend.account_busy
                 onClicked: page.backend.restore_saved_sign_in()
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Отменить вход")
+                text: qsTranslate("Ui", "Cancel sign-in")
                 visible: page.backend.login_cancellable
                 onClicked: page.backend.cancel_sign_in()
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Выбрать конфигурацию входа")
+                text: qsTranslate("Ui", "Choose sign-in configuration")
                 visible: !page.backend.account_configured
                 onClicked: page.chooseConfig()
             }
@@ -151,7 +184,7 @@ ScrollView {
             Layout.fillWidth: true
             visible: page.backend.account_busy
             indeterminate: true
-            Accessible.name: qsTr("Вход в аккаунт")
+            Accessible.name: qsTranslate("Ui", "Signing in")
         }
         UI.BodyText {
             tokens: page.tokens
@@ -161,7 +194,7 @@ ScrollView {
         }
         UI.ActionButton {
             tokens: page.tokens
-            text: qsTr("Выйти из аккаунта")
+            text: qsTranslate("Ui", "Sign out")
             visible: page.backend.account_authorized || page.backend.login_remembered
             onClicked: page.backend.sign_out()
         }
@@ -172,9 +205,9 @@ ScrollView {
         }
         CheckBox {
             id: details
-            text: qsTr("Показать диагностику")
+            text: qsTranslate("Ui", "Show diagnostics")
             font.pointSize: page.tokens.body
-            Accessible.description: qsTr("Состояние входа, приватных ключей и сертификаты устройств")
+            Accessible.description: qsTranslate("Ui", "Sign-in status, private keys and device certificates")
         }
         ColumnLayout {
             visible: details.checked
@@ -212,13 +245,13 @@ ScrollView {
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Повторить настройку устройств")
+                text: qsTranslate("Ui", "Retry device setup")
                 enabled: page.backend.account_authorized && !page.backend.account_busy && !page.backend.transfer_busy && !page.backend.receiving_active
                 onClicked: page.backend.prepare_own_devices()
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Остановить поиск")
+                text: qsTranslate("Ui", "Stop searching")
                 visible: page.backend.discovery_busy
                 onClicked: page.backend.cancel_discovery()
             }
@@ -226,7 +259,7 @@ ScrollView {
                 tokens: page.tokens
                 secondary: true
                 role: "label"
-                text: qsTr("У этого компьютера обычно три сертификата для последовательных периодов. Названия других устройств появляются после обнаружения рядом. Старые регистрации могут оставаться до истечения срока.")
+                text: qsTranslate("Ui", "This computer usually has three certificates for consecutive periods. Other device names appear once discovered nearby. Old registrations may remain until their certificates expire.")
                 Layout.fillWidth: true
             }
             Repeater {
@@ -240,7 +273,7 @@ ScrollView {
             }
             UI.ActionButton {
                 tokens: page.tokens
-                text: qsTr("Проверить поддержку контактов")
+                text: qsTranslate("Ui", "Check contacts support")
                 onClicked: page.backend.check_contacts()
             }
         }
@@ -248,14 +281,14 @@ ScrollView {
             tokens: page.tokens
             secondary: true
             role: "label"
-            text: qsTr("Экспериментальная версия: Wi-Fi в одной сети, один файл до 64 МиБ. Bluetooth и режим контактов пока недоступны. Для проверки используйте тестовый аккаунт.")
+            text: qsTranslate("Ui", "Experimental version: one file up to 64 GiB, over Wi-Fi on the same network. Bluetooth helps discovery; Contacts mode is not available yet. Use a test account for testing.")
             Layout.fillWidth: true
         }
         UI.BodyText {
             tokens: page.tokens
             secondary: true
             role: "label"
-            text: qsTr("Используется локально импортированная конфигурация Quick Share; это имя может отображаться на странице согласия. Nearlane - независимый проект, не связанный с Google или Samsung.")
+            text: qsTranslate("Ui", "Uses a locally imported Quick Share configuration; that name may appear on the consent page. Nearlane is an independent project, not affiliated with Google or Samsung.")
             Layout.fillWidth: true
         }
         Item {

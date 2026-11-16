@@ -41,3 +41,5 @@ and outgoing private transfer were subsequently implemented and verified on Andr
 [native-outgoing.md](native-outgoing.md). Discovery alone still does not authorize a
 transfer. IPv6 remains unsupported. Google account tokens are not used by the discovery
 worker, and the automated tests do not scan the LAN.
+
+Private BLE discovery is now implemented; see [bluetooth.md](bluetooth.md).

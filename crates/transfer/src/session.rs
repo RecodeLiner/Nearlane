@@ -1,4 +1,5 @@
 //! Bounded duplex control handling on the selected encrypted LAN socket.
+use crate::limits::{Clock, ControlBudget};
 use crate::{Cancellation, FileOffer, FileSummary, TransferError};
 use nearlane_certificates::{LocalCertificate, PeerRole, RemoteCertificate, now_seconds};
 use nearlane_protocol::{
@@ -32,7 +33,7 @@ impl DeadlineSocket {
     pub(crate) fn new(socket: TcpStream) -> Self {
         Self {
             socket,
-            deadline: Cell::new(Instant::now() + Duration::from_secs(180)),
+            deadline: Cell::new(Instant::now() + Duration::from_secs(15)),
         }
     }
     fn remaining(&self, cap: Duration) -> std::io::Result<Duration> {
@@ -84,8 +85,8 @@ pub(crate) struct Session {
     received: HashSet<i64>,
     assembly: Option<Assembly>,
     cancellation: Cancellation,
-    deadline: Instant,
-    serviced: usize,
+    clock: Clock,
+    controls: ControlBudget,
 }
 impl Session {
     pub(crate) fn new(channel: SecureChannel<DeadlineSocket>, cancellation: Cancellation) -> Self {
@@ -95,18 +96,48 @@ impl Session {
             received: HashSet::new(),
             assembly: None,
             cancellation,
-            deadline: Instant::now() + Duration::from_secs(180),
-            serviced: 0,
+            clock: Clock::bounded(Instant::now(), Duration::from_secs(180)),
+            controls: ControlBudget::new(Instant::now()),
         }
     }
     fn check(&self) -> Result<(), TransferError> {
         if self.cancellation.is_cancelled() {
             return Err(TransferError::Cancelled);
         }
-        if Instant::now() >= self.deadline {
+        if self.clock.expired(Instant::now()) {
             return Err(std::io::Error::new(ErrorKind::TimedOut, "session deadline").into());
         }
         Ok(())
+    }
+    fn prepare_frame(&self) -> Result<(), TransferError> {
+        self.check()?;
+        self.channel
+            .io_ref()
+            .deadline
+            .set(self.clock.frame_deadline(Instant::now()));
+        Ok(())
+    }
+    fn send_frame(&mut self, bytes: &[u8]) -> Result<(), TransferError> {
+        self.prepare_frame()?;
+        self.channel.send(bytes)?;
+        Ok(())
+    }
+    fn receive_frame(&mut self) -> Result<Vec<u8>, TransferError> {
+        self.prepare_frame()?;
+        Ok(self.channel.receive()?)
+    }
+    fn control_frame(&mut self) -> Result<(), TransferError> {
+        if self.controls.record(Instant::now()) {
+            Ok(())
+        } else {
+            Err(TransferError::Sequence)
+        }
+    }
+    pub(crate) fn begin_file_transfer(&mut self) {
+        self.clock = Clock::data(Instant::now());
+    }
+    pub(crate) fn file_progress(&mut self) {
+        self.clock.progress(Instant::now());
     }
     pub(crate) fn reserve_id(&mut self) -> Result<i64, TransferError> {
         if self.sent.len() >= 32 {
@@ -125,8 +156,7 @@ impl Session {
         Err(TransferError::Worker)
     }
     pub(crate) fn begin_receive_consent(&mut self) {
-        self.deadline = Instant::now() + Duration::from_secs(180);
-        self.channel.io_ref().deadline.set(self.deadline);
+        self.clock = Clock::bounded(Instant::now(), Duration::from_secs(180));
     }
     pub(crate) fn poll_consent_control(&mut self, offer: &FileOffer) -> Result<(), TransferError> {
         if self.ready()? {
@@ -165,7 +195,7 @@ impl Session {
         }
         let id = self.reserve_id()?;
         let size = bytes.len() as u64;
-        self.channel.send(&wire::encode_data(&PayloadChunk {
+        self.send_frame(&wire::encode_data(&PayloadChunk {
             id,
             kind: PayloadKind::Bytes,
             total_size: size,
@@ -176,7 +206,7 @@ impl Session {
             file_name: None,
             parent_folder: None,
         })?)?;
-        self.channel.send(&wire::encode_data(&PayloadChunk {
+        self.send_frame(&wire::encode_data(&PayloadChunk {
             id,
             kind: PayloadKind::Bytes,
             total_size: size,
@@ -246,11 +276,7 @@ impl Session {
     }
     fn pump(&mut self) -> Result<Option<Event>, TransferError> {
         self.check()?;
-        self.serviced += 1;
-        if self.serviced > 8192 {
-            return Err(TransferError::Sequence);
-        }
-        let bytes = self.channel.receive()?;
+        let bytes = self.receive_frame()?;
         let control = connection::control(&bytes).inspect_err(|_| {
             if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
                 eprintln!(
@@ -259,56 +285,65 @@ impl Session {
                 );
             }
         })?;
+        if !matches!(control, Control::Payload) {
+            self.control_frame()?;
+        }
         match control {
             Control::KeepAlive { ack, sequence } => {
                 if !ack {
-                    self.channel.send(&connection::keep_alive(true, sequence))?;
+                    self.send_frame(&connection::keep_alive(true, sequence))?;
                 }
                 Ok(None)
             }
             Control::Upgrade { medium } => {
-                self.channel.send(&connection::decline_upgrade(medium))?;
+                self.send_frame(&connection::decline_upgrade(medium))?;
                 Ok(None)
             }
             Control::UpgradeCapabilities { request } => {
                 if request {
-                    self.channel
-                        .send(&connection::upgrade_capabilities(false))?;
+                    self.send_frame(&connection::upgrade_capabilities(false))?;
                 }
                 Ok(None)
             }
             Control::Disconnect { request, ack } => {
                 if request && !ack {
-                    let _ = self.channel.send(&connection::disconnect(true, true));
+                    let _ = self.send_frame(&connection::disconnect(true, true));
                 }
                 Err(TransferError::Cancelled)
             }
-            Control::Payload => match wire::decode_payload(&bytes).inspect_err(|error| {
-                if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
-                    eprintln!(
-                        "receiver/transport: payload decoder {error:?}; {}",
-                        wire::diagnostic_payload_shape(&bytes)
-                    );
-                }
-            })? {
-                PayloadEvent::Acknowledged(id) => {
-                    if !self.sent.contains(&id) {
-                        if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
-                            eprintln!(
-                                "receiver/transport: acknowledgement of an unknown outgoing payload"
-                            );
-                        }
-                        return Err(TransferError::Sequence);
+            Control::Payload => {
+                let payload = wire::decode_payload(&bytes).inspect_err(|error| {
+                    if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                        eprintln!(
+                            "receiver/transport: payload decoder {error:?}; {}",
+                            wire::diagnostic_payload_shape(&bytes)
+                        );
                     }
-                    Ok(Some(Event::Ack(id)))
+                })?;
+                if !matches!(&payload, PayloadEvent::Data(chunk) if chunk.kind == PayloadKind::File)
+                {
+                    self.control_frame()?;
                 }
-                PayloadEvent::Cancelled(_) => Err(TransferError::Cancelled),
-                PayloadEvent::Failed(_) => Err(TransferError::Rejected),
-                PayloadEvent::Data(chunk) if chunk.kind == PayloadKind::File => {
-                    Ok(Some(Event::File(chunk)))
+                match payload {
+                    PayloadEvent::Acknowledged(id) => {
+                        if !self.sent.contains(&id) {
+                            if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
+                                eprintln!(
+                                    "receiver/transport: acknowledgement of an unknown outgoing payload"
+                                );
+                            }
+                            return Err(TransferError::Sequence);
+                        }
+                        Ok(Some(Event::Ack(id)))
+                    }
+                    PayloadEvent::Cancelled(_) => Err(TransferError::Cancelled),
+                    PayloadEvent::Failed(_) => Err(TransferError::Rejected),
+                    PayloadEvent::Data(chunk) if chunk.kind == PayloadKind::File => {
+                        Ok(Some(Event::File(chunk)))
+                    }
+                    PayloadEvent::Data(chunk) => self.assemble(chunk),
                 }
-                PayloadEvent::Data(chunk) => self.assemble(chunk),
-            },
+            }
         }
     }
     fn assemble(&mut self, chunk: PayloadChunk) -> Result<Option<Event>, TransferError> {
@@ -359,7 +394,7 @@ impl Session {
             }
             self.received.insert(a.id);
             if self.channel.supports_payload_ack() {
-                self.channel.send(&wire::encode_ack(a.id))?;
+                self.send_frame(&wire::encode_ack(a.id))?;
             }
             return Ok(Some(Event::Bytes(a.bytes)));
         }
@@ -400,6 +435,7 @@ impl Session {
         if !self.sent.contains(&offer.payload_id) {
             return Err(TransferError::Sequence);
         }
+        self.begin_file_transfer();
         let mut offset = 0;
         let mut index = 0;
         let mut digest = Sha256::new();
@@ -415,7 +451,7 @@ impl Session {
                 }
             })?;
             digest.update(&buffer[..length]);
-            self.channel.send(&wire::encode_data(&PayloadChunk {
+            self.send_frame(&wire::encode_data(&PayloadChunk {
                 id: offer.payload_id,
                 kind: PayloadKind::File,
                 total_size: offer.size,
@@ -428,6 +464,7 @@ impl Session {
             })?)?;
             offset += length as u64;
             index += 1;
+            self.file_progress();
             progress(offset);
             for _ in 0..8 {
                 if !self.ready()? {
@@ -443,7 +480,7 @@ impl Session {
         if source.read(&mut extra)? != 0 {
             return Err(TransferError::SourceChanged);
         }
-        self.channel.send(&wire::encode_data(&PayloadChunk {
+        self.send_frame(&wire::encode_data(&PayloadChunk {
             id: offer.payload_id,
             kind: PayloadKind::File,
             total_size: offer.size,
@@ -460,12 +497,14 @@ impl Session {
         })
     }
     pub(crate) fn wait_file_ack(&mut self, file_id: i64) -> Result<(), TransferError> {
-        if !self.channel.supports_payload_ack() {
+        let wait = if !self.channel.supports_payload_ack() {
             // Legacy Android does not negotiate file receipts. Give its final
             // messages a bounded grace period; keep-alives cannot prolong it.
-            let deadline = &self.channel.io_ref().deadline;
-            deadline.set(deadline.get().min(Instant::now() + Duration::from_secs(5)));
-        }
+            Duration::from_secs(5)
+        } else {
+            Duration::from_secs(30)
+        };
+        self.clock = Clock::bounded(Instant::now(), wait);
         for _ in 0..256 {
             let event = self.next()?;
             if matches!(event,Event::Ack(id) if id==file_id) {
@@ -478,23 +517,21 @@ impl Session {
     pub(crate) fn finish(&mut self) {
         // Try safe close after EOF whether or not a receipt was available.
         // Closing never upgrades an unconfirmed result to acknowledged delivery.
-        let deadline = &self.channel.io_ref().deadline;
-        deadline.set(Instant::now() + Duration::from_secs(2));
+        self.clock = Clock::bounded(Instant::now(), Duration::from_secs(2));
         if self
-            .channel
-            .send(&connection::disconnect(true, false))
+            .send_frame(&connection::disconnect(true, false))
             .is_err()
         {
             return;
         }
         for _ in 0..16 {
-            let Ok(bytes) = self.channel.receive() else {
+            let Ok(bytes) = self.receive_frame() else {
                 return;
             };
             match connection::control(&bytes) {
                 Ok(Control::Disconnect { request, ack }) => {
                     if request && !ack {
-                        let _ = self.channel.send(&connection::disconnect(true, true));
+                        let _ = self.send_frame(&connection::disconnect(true, true));
                     }
                     return;
                 }
@@ -502,7 +539,7 @@ impl Session {
                     ack: false,
                     sequence,
                 }) => {
-                    let sent = self.channel.send(&connection::keep_alive(true, sequence));
+                    let sent = self.send_frame(&connection::keep_alive(true, sequence));
                     if sent.is_err() {
                         return;
                     }
@@ -513,17 +550,17 @@ impl Session {
     }
     pub(crate) fn acknowledge_file(&mut self, id: i64) -> Result<(), TransferError> {
         if self.channel.supports_payload_ack() {
-            self.channel.send(&wire::encode_ack(id))?;
+            self.send_frame(&wire::encode_ack(id))?;
         }
         Ok(())
     }
     pub(crate) fn ping(&mut self) -> Result<(), TransferError> {
-        self.channel.send(&connection::keep_alive(false, 17))?;
+        self.send_frame(&connection::keep_alive(false, 17))?;
         Ok(())
     }
     #[cfg(test)]
     pub(crate) fn request_upgrade_capabilities(&mut self) -> Result<(), TransferError> {
-        self.channel.send(&connection::upgrade_capabilities(true))?;
+        self.send_frame(&connection::upgrade_capabilities(true))?;
         Ok(())
     }
 }

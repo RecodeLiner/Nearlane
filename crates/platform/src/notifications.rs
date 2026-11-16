@@ -42,7 +42,10 @@ impl std::error::Error for NotificationError {}
 pub struct FileNotification {
     sender: String,
     name: String,
-    bytes: u64,
+    title: String,
+    accept: String,
+    decline: String,
+    size: String,
 }
 impl fmt::Debug for FileNotification {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -58,24 +61,48 @@ impl FileNotification {
             || name.is_empty()
             || name.len() > 255
             || sender.chars().chain(name.chars()).any(char::is_control)
-            || bytes > 64 * 1024 * 1024
+            || bytes > nearlane_core::MAX_FILE_BYTES
         {
             return Err(NotificationError::Invalid);
         }
         Ok(Self {
             sender: sender.into(),
             name: name.into(),
-            bytes,
+            title: "Incoming file".into(),
+            accept: "Accept".into(),
+            decline: "Decline".into(),
+            size: format!("{bytes} bytes"),
         })
+    }
+    /// Apply trusted UI translations before starting the background worker.
+    /// Action routing uses independent random keys, never these visible labels.
+    pub fn localized(
+        mut self,
+        title: &str,
+        accept: &str,
+        decline: &str,
+        size: &str,
+    ) -> Result<Self, NotificationError> {
+        if [title, accept, decline, size]
+            .iter()
+            .any(|s| s.is_empty() || s.len() > 1024 || s.chars().any(char::is_control))
+        {
+            return Err(NotificationError::Invalid);
+        }
+        self.title = title.into();
+        self.accept = accept.into();
+        self.decline = decline.into();
+        self.size = size.into();
+        Ok(self)
     }
     #[cfg(target_os = "linux")]
     fn body(&self, markup: bool) -> String {
         let text = |s: &str| if markup { escape(s) } else { s.to_owned() };
         format!(
-            "{}\n{} · {} bytes",
+            "{}\n{} · {}",
             text(&self.sender),
             text(&self.name),
-            self.bytes
+            text(&self.size)
         )
     }
 }
@@ -135,7 +162,14 @@ impl ActionNotification {
         }
         #[cfg(not(target_os = "linux"))]
         {
-            drop((request.sender, request.name, request.bytes));
+            drop((
+                request.sender,
+                request.name,
+                request.title,
+                request.accept,
+                request.decline,
+                request.size,
+            ));
             Err(NotificationError::Unavailable)
         }
     }
@@ -162,7 +196,8 @@ mod tests {
             .unwrap_or_else(|_| panic!("valid fixture"));
         assert!(!format!("{r:?}").contains("Private"));
         assert!(FileNotification::new("phone\ncontrol", "test", 1).is_err());
-        assert!(FileNotification::new("phone", "test", 65 * 1024 * 1024).is_err());
+        assert!(FileNotification::new("phone", "test", nearlane_core::MAX_FILE_BYTES).is_ok());
+        assert!(FileNotification::new("phone", "test", nearlane_core::MAX_FILE_BYTES + 1).is_err());
     }
     #[cfg(target_os = "linux")]
     #[test]
@@ -174,5 +209,18 @@ mod tests {
             "&lt;b&gt;phone&lt;/b&gt;\na&amp;b.txt · 94 bytes"
         );
         assert_eq!(r.body(false), "<b>phone</b>\na&b.txt · 94 bytes");
+        let localized = r
+            .localized("Входящий файл", "Принять", "Отклонить", "94 Б")
+            .unwrap_or_else(|_| panic!("trusted translation"));
+        assert_eq!(
+            localized.body(true),
+            "&lt;b&gt;phone&lt;/b&gt;\na&amp;b.txt · 94 Б"
+        );
+        assert!(
+            FileNotification::new("phone", "test", 1)
+                .unwrap_or_else(|_| panic!("fixture"))
+                .localized("x\ncontrol", "Accept", "Decline", "1 B")
+                .is_err()
+        );
     }
 }

@@ -761,4 +761,38 @@ mod tests {
             PayloadEvent::Cancelled(18)
         ));
     }
+    #[test]
+    fn file_sizes_and_offsets_above_four_gib_are_not_truncated() {
+        let size = (1_u64 << 32) + 17;
+        let metadata = FileMetadata {
+            name: "large.bin".into(),
+            payload_id: 7,
+            size,
+            attachment_id: 8,
+            mime_type: "application/octet-stream".into(),
+        };
+        let message = ShareMessage::Introduction(metadata);
+        assert_eq!(
+            decode_share(&encode_share(&message).unwrap()).unwrap(),
+            message
+        );
+        let chunk = PayloadChunk {
+            id: 7,
+            kind: PayloadKind::File,
+            total_size: size,
+            offset: size,
+            index: 65537,
+            body: Vec::new(),
+            last: true,
+            file_name: None,
+            parent_folder: None,
+        };
+        let PayloadEvent::Data(decoded) = decode_payload(&encode_data(&chunk).unwrap()).unwrap()
+        else {
+            panic!("not data")
+        };
+        assert_eq!(decoded.total_size, size);
+        assert_eq!(decoded.offset, size);
+        assert_eq!(decoded.index, 65537);
+    }
 }

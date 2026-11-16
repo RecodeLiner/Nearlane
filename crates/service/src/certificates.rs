@@ -3,6 +3,8 @@
 pub struct CertificateRow {
     /// One-based position in the current query result; not a stable device ID.
     pub number: usize,
+    /// This certificate belongs to the local registration, not a discovered name.
+    pub local: bool,
     /// Locally owned key or name authenticated by a matched advertisement.
     pub device: Option<String>,
     /// Public start time, Unix seconds.

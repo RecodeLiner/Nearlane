@@ -1,4 +1,4 @@
-# Validation baseline - 2026-11-15
+# Validation baseline - 2026-11-16
 
 Local environment: NixOS x86_64, locked nixpkgs
 `d4f25a3e562008648d45bcf2d70bcc7422cad84e`, Rust 1.99.1, Qt 6.12.0.
@@ -9,9 +9,50 @@ Rust 1.85 is the declared minimum; it has not been tested locally.
 - A 94-byte file was sent privately to a real Android phone, saved and opened.
 - The same file was sent from Android to the PC and saved successfully.
 - These tests verify the own-device transfer path. Contacts mode is unavailable.
+- Private BLE discovery works with the phone screen off; the Wi-Fi endpoint appeared after unlocking.
 
 Large-file Android delivery and screen-off Wi-Fi bootstrap are not verified.
 The checks and earlier failure/correction sequence are recorded below.
+
+Russian/English localization update:
+
+- Two Qt TS catalogs contain 250 messages each, including navigation, settings,
+  accessibility labels, dialogs, tray text, transfer progress/errors, account and
+  certificate diagnostics, and native notification actions. Catalog validation
+  checks complete source coverage and preserves every numbered placeholder.
+- Seventeen isolated synthetic UI cases passed in each language (34 captures).
+  Live switching ru → en → previous language and invalid-input rejection passed;
+  the Qt bindings and deferred backend messages both changed immediately.
+- Session-style and KDE-style offscreen smoke passed, including persistence of
+  language and receiving preferences across two independent processes.
+- The notification mock passed Accept, Decline and cancellation, including a
+  Russian title/body/action-label case. No visible notification, real account
+  grant or radio was used by these checks.
+- All 104 regular workspace tests and strict non-UI all-target Clippy passed.
+  Deferred rendering tests cover nested translation, reordered/repeated/two-digit
+  arguments and names containing placeholder-looking text. macOS/Windows have
+  not been run locally.
+
+Large-file/Bluetooth update:
+
+- The regular owned full-stack test streams 65 MiB + 17 bytes with constant-size
+  buffers. The opt-in 513 MiB + 17 test also passed: 537,919,505 bytes, 8,210
+  frames, 87.54 seconds in the unoptimized development build. It establishes
+  encrypted/private-proof streaming, persistence, reread digest and receipt on
+  simulated owned loopback peers; no real account or phone was used.
+- Metadata and payload offsets above 4 GiB round-trip without truncation.
+  Deterministic clock tests cover an hour of real progress, idle expiry, finite
+  total lifetime and per-window control floods. Partial-frame deadlines remain.
+- BLE decoding/membership and unauthenticated gating tests passed. The native
+  session-bus advertising mock registered and withdrew exactly its own lease;
+  its properties omit local name, discoverability and pairing mutations.
+- Qt Bluetooth compiled on NixOS; native UI smoke passed without starting a
+  radio or restoring a real account grant. The normal authorized app was opened, and
+  OS inspection found the powered adapter scanning with one advertisement.
+- Private BLE discovery was confirmed with the phone screen off, but Wi-Fi
+  only becomes selectable after unlocking. Screen-off connection bootstrap and
+  large-file Android delivery are not yet established. macOS native scanning/app packaging and Windows are untested;
+  the raw wake beacon is currently Linux-only. See research/bluetooth.md.
 
 Material desktop redesign:
 
@@ -37,7 +78,7 @@ Material desktop redesign:
 Verified:
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked --workspace --exclude nearlane-desktop`: 95 tests pass on Linux,
+- `cargo test --locked --workspace --exclude nearlane-desktop`: 104 tests pass on Linux,
   including local OAuth callbacks, sign-out, encrypted file streaming,
   tampering/replay, size/offset/path checks and non-overwrite behavior, plus
   public Google certificate crypto vectors, own-device-only publication,
@@ -110,44 +151,44 @@ the journal, making a captured stderr appear clean.
 Upstream reference: [Kirigami StyleSelector, v6.31.0](https://github.com/KDE/kirigami/blob/v6.31.0/src/platform/styleselector.cpp).
 
 This checks loading and QML/Rust integration, not a visual screenshot or a real
-interactive desktop session. Windows/macOS execution has not been validated locally. Bluetooth discovery remains unimplemented.
-Incoming and outgoing single-file stacks and UI are implemented and verified on real
-Android hardware. Saving/opening a 94-byte private transfer to Android was confirmed,
-followed by successful saving of the same file from Android to the PC. Bluetooth
-background discovery and large files remain unverified. Follow-up
-tray/continuous-discovery changes compile and pass the checks above. Windows/macOS tray
-behavior and automatic acceptance on a real phone remain unverified. Native notification
-buttons were confirmed working and a subsequent incoming transfer was instant; an
-earlier transient Sending delay was not reproduced or attributed to a cause. Simulated
-peer tests alone do not prove Android interoperability. Wi-Fi LAN discovery and metadata
-decryption found the authorized Android phone. On 2026-11-15 an authorized trial used a
-harmless 94-byte test file on that phone. `send-own` restored the existing Google grant
-without a browser, completed certificate setup and found exactly the requested
-certificate-matched phone. Its first connection failed during the encryption prelude,
-before an introduction or file content. A second search found no matching advertisement.
-Later diagnostics showed accepted Android feature version 4, which lacks the optional
-version-6 file ACK; that is no longer a connection rejection. A subsequent test passed
-mutual private proofs and successful peer results, receiver acceptance and a 94-byte
-upload. The phone displayed receiving and eventually Can't transfer files, so that
-attempt did not establish saved delivery. Chunk indices and exact EOF encoding were
-corrected. The following real attempt passed mutual private proof/receiver acceptance
-again, and the test file was confirmed received and opening successfully. The peer
-closed without a file ACK; this stays unconfirmed in the sender's wire-level status
-rather than fabricating a receipt. Diagnostics retain only safe protocol checkpoints,
-never tokens, handshake bytes or traffic captures. No saved token values were inspected
-and no new account was authorized for this check. The local file engine is implemented,
-but the self-test starts directly at UKEY2 and is not a complete Nearby connection or
-Android/private-mode session. The application displayed “Quick Share permission granted”
-after browser login on 2026-11-15. Successful registration and query were subsequently
-confirmed: 9 own-device certificates, 6 active, 0 malformed. That establishes
-authenticated API exchange in the authorized account session; live Android verification
-is recorded separately above. Earlier public-endpoint probes used no account or cookies:
-OAuth reached Google's login page, and a separate empty HTTP/2 gRPC request received
-UNAUTHENTICATED status 16 from Nearby Identity. The app now implements temporary
-own-device publication and queries. Explicit device search starts a bounded LAN search;
-it never publishes a receiver or enables file sharing on that basis alone. See [the
-login experiment](research/oauth-runtime.md) and [the certificate/API
-evidence](research/identity-certificates.md).
+interactive desktop session. Windows/macOS execution has not been validated locally. Private BLE discovery is implemented and
+verified on the test phone. Incoming and outgoing single-file stacks and UI are
+implemented and verified on real Android hardware. Saving/opening a 94-byte private
+transfer to Android was confirmed, followed by successful saving of the same file from
+Android to the PC. Screen-off Wi-Fi connection bootstrap and large-file Android delivery
+remain unverified. Follow-up tray/continuous-discovery changes compile and pass the
+checks above. Windows/macOS tray behavior and automatic acceptance on a real phone
+remain unverified. Native notification buttons were confirmed working and a subsequent
+incoming transfer was instant; an earlier transient Sending delay was not reproduced or
+attributed to a cause. Simulated peer tests alone do not prove Android interoperability.
+Wi-Fi LAN discovery and metadata decryption found the authorized Android phone. On
+2026-11-15 an authorized trial used a harmless 94-byte test file on that phone.
+`send-own` restored the existing Google grant without a browser, completed certificate
+setup and found exactly the requested certificate-matched phone. Its first connection
+failed during the encryption prelude, before an introduction or file content. A second
+search found no matching advertisement. Later diagnostics showed accepted Android
+feature version 4, which lacks the optional version-6 file ACK; that is no longer a
+connection rejection. A subsequent test passed mutual private proofs and successful peer
+results, receiver acceptance and a 94-byte upload. The phone displayed receiving and
+eventually Can't transfer files, so that attempt did not establish saved delivery. Chunk
+indices and exact EOF encoding were corrected. The following real attempt passed mutual
+private proof/receiver acceptance again, and the test file was confirmed received and
+opening successfully. The peer closed without a file ACK; this stays unconfirmed in the
+sender's wire-level status rather than fabricating a receipt. Diagnostics retain only
+safe protocol checkpoints, never tokens, handshake bytes or traffic captures. No saved
+token values were inspected and no new account was authorized for this check. The local
+file engine is implemented, but the self-test starts directly at UKEY2 and is not a
+complete Nearby connection or Android/private-mode session. The application displayed
+“Quick Share permission granted” after browser login on 2026-11-15. Successful
+registration and query were subsequently confirmed: 9 own-device certificates, 6 active,
+0 malformed. That establishes authenticated API exchange in the authorized account
+session; live Android verification is recorded separately above. Earlier public-endpoint
+probes used no account or cookies: OAuth reached Google's login page, and a separate
+empty HTTP/2 gRPC request received UNAUTHENTICATED status 16 from Nearby Identity. The
+app now implements temporary own-device publication and queries. Explicit device search
+starts a bounded LAN search; it never publishes a receiver or enables file sharing on
+that basis alone. See [the login experiment](research/oauth-runtime.md) and [the
+certificate/API evidence](research/identity-certificates.md).
 
 Debug C++ builds can warn that FORTIFY needs optimization; the release package
 is optimized. Tests do not use real account credentials or proprietary fixtures.

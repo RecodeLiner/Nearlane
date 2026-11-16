@@ -1,3 +1,4 @@
+use nearlane_core::Text;
 use nearlane_discovery::{DiscoveryError, OwnDevice, Search};
 
 /// Safe discovery state; finding a candidate does not enable private sharing.
@@ -16,12 +17,24 @@ pub enum DiscoveryStatus {
 impl DiscoveryStatus {
     /// Plain progress text; no account/device identity values.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self {
-            Self::Idle => "Ready to search your local network after certificate setup.".into(),
-            Self::Searching => "Looking for your own Quick Share devices for 20 seconds…".into(),
-            Self::Found(0) => "No matching Wi-Fi LAN advertisements found. Check the same network and phone's Quick Share settings. Bluetooth discovery is not implemented yet.".into(),
-            Self::Found(n) => format!("Found {n} own-device candidates. Their advertisement metadata is authenticated; live connection verification is still required."),
-            Self::Failed(error) => error.to_string(),
+            Self::Idle => Text::new("Ready to search your local network after certificate setup."),
+            Self::Searching => {
+                Text::new("Looking for your own Quick Share devices for 20 seconds…")
+            }
+            Self::Found(0) => Text::new(
+                "No matching Wi-Fi LAN endpoints found. Check the same network and phone's private Quick Share settings; a Bluetooth hint alone is not a file-transfer endpoint.",
+            ),
+            Self::Found(n) => Text::with_args(
+                "Found %1 own-device candidates. Their advertisement metadata is authenticated; live connection verification is still required.",
+                [Text::literal(n)],
+            ),
+            Self::Failed(error) => error.text(),
         }
     }
 }
@@ -32,6 +45,17 @@ pub(crate) struct Discovery {
     pub(crate) watch: Option<nearlane_discovery::Watch>,
     pub(crate) devices: Vec<OwnDevice>,
     pub(crate) status: DiscoveryStatus,
+    pub(crate) bluetooth: Vec<BleObservation>,
+}
+pub(crate) struct BleObservation {
+    pub(crate) certificate: std::sync::Arc<nearlane_certificates::RemoteCertificate>,
+    pub(crate) name: String,
+    pub(crate) seen: std::time::Instant,
+}
+impl std::fmt::Debug for BleObservation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("BleObservation([REDACTED])")
+    }
 }
 impl Discovery {
     pub(crate) fn reset(&mut self) {

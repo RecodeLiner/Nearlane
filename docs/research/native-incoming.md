@@ -27,7 +27,7 @@ after mutual verification are the sender's authenticated name, safe filename and
 exposed to plain-text QML. Verified own-device offers are approved automatically by
 default. Optional per-file confirmation uses Accept or Decline and expires after sixty
 seconds. Keep-alives are serviced while waiting, and file content sent before consent is
-rejected without creating a temporary file. One regular file up to 64 MiB is supported;
+rejected without creating a temporary file. One regular file up to 64 GiB is supported;
 other attachment families and folders are rejected. Staging uses the existing private
 temporary-file sink, with exact ID/type/length/offset/EOF checks, sync and
 non-overwriting publication. A receipt is sent only after persistence and only when
@@ -69,13 +69,18 @@ failure; Nearlane does not stop another application or silently change ports.
 
 ## Background Bluetooth work
 
+This paragraph records the earlier radio-less baseline. The current portable
+Qt scanner, private BLE hint matching and optional Linux silent-initiation lease
+are documented in [bluetooth.md](bluetooth.md). Bluetooth file sockets and full
+BLE/GATT connection handling remain outside this Wi-Fi transfer stage.
+
 The public sharing manager uses NearbySharing, point-to-point strategy and fast
 advertisement UUID 0000fef3-0000-1000-8000-00805f9b34fb. Discovery/advertising
 involves a connections advertisement inside a BLE-medium envelope, with optional
 GATT advertisement slots and BLE socket versioning. A UUID scan or a dummy beacon
-alone is not a complete compatible background implementation. BlueZ integration,
-appropriate socket/GATT lifetime, cancellation and Android screen-off tests
-remain separate work. No Bluetooth capability is advertised by this stage.
+alone is not a complete compatible background connection. BLE discovery and
+the Linux advertisement lease are implemented. Bluetooth socket/GATT connection
+bootstrap and screen-off Wi-Fi negotiation remain separate work.
 
 ## Background behavior
 

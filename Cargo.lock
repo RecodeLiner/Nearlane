@@ -1677,6 +1677,7 @@ version = "0.1.0"
 dependencies = [
  "futures-util",
  "keyring",
+ "nearlane-core",
  "rand 0.8.8",
  "sha2",
  "tokio",

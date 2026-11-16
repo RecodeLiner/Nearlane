@@ -1,4 +1,5 @@
 //! OS integration boundary. No fake Bluetooth discovery or secret storage.
+pub mod bluetooth;
 pub mod credentials;
 pub mod notifications;
 

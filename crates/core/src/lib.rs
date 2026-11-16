@@ -1,4 +1,10 @@
 //! UI-independent domain types. This crate intentionally has no dependencies.
+mod text;
+pub use text::Text;
+
+/// Per-file product policy shared by transfer validation and notifications.
+/// Streaming buffers and encrypted frame bounds remain independent of this size.
+pub const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
 
 /// The privacy policy enforced by the prototype.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

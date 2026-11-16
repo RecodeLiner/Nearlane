@@ -26,7 +26,7 @@ use std::{
     sync::mpsc,
 };
 
-fn identity(name: &str) -> (OwnDeviceIdentity, RemoteCertificate) {
+pub(super) fn identity(name: &str) -> (OwnDeviceIdentity, RemoteCertificate) {
     let mut certificate = LocalCertificate::generate(
         DeviceMetadata::named(name).unwrap(),
         Visibility::OwnDevices,

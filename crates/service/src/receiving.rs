@@ -1,10 +1,11 @@
+use nearlane_core::Text;
 use nearlane_transfer::{IncomingOffer, ReceiveJob};
 use std::path::PathBuf;
 
 pub(crate) struct Receiving {
     pub(crate) directory: Option<PathBuf>,
     pub(crate) job: Option<ReceiveJob>,
-    pub(crate) message: String,
+    pub(crate) message: Text,
     pub(crate) saved: bool,
     pub(crate) count: u32,
     pub(crate) enabled: bool,
@@ -70,7 +71,7 @@ impl Receiving {
         let Some(job) = &self.job else {
             return;
         };
-        self.message = job.phase().message();
+        self.message = job.phase().text();
         // ReceiveJob exposes this gate only after matched own-device metadata,
         // mutual live proofs and a validated single-file introduction.
         if !confirm_each_file && !self.decision_sent && job.decide(true) {
@@ -95,14 +96,14 @@ impl Receiving {
             }
             self.restart = std::time::Instant::now() + std::time::Duration::from_secs(1);
             self.message = match result {
-                Ok(file) => format!(
-                    "File saved: {} bytes. Preparing to receive another file.",
-                    file.summary.bytes
+                Ok(file) => Text::with_args(
+                    "File saved: %1 bytes. Preparing to receive another file.",
+                    [Text::literal(file.summary.bytes)],
                 ),
                 Err(nearlane_transfer::ReceiveFailure::TimedOut) if self.enabled => {
                     "Refreshing private reception. Receiving stays enabled.".into()
                 }
-                Err(error) => error.to_string(),
+                Err(error) => error.text(),
             };
             self.job = None;
         }

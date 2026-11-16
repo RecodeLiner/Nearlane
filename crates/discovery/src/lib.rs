@@ -1,8 +1,11 @@
-//! Bounded Wi-Fi LAN discovery and explicit private receiver advertisements.
+//! Bounded Wi-Fi LAN discovery, verified BLE hints and private advertisements.
 //! Only API-delivered own-device certificates may authenticate candidate names.
+use nearlane_core::Text;
 mod advertisement;
+mod bluetooth;
 mod publication;
 mod watch;
+pub use bluetooth::match_bluetooth;
 pub use publication::PrivateAdvertisement;
 pub use watch::Watch;
 
@@ -35,18 +38,26 @@ pub enum DiscoveryError {
     /// Background worker could not start or stopped unexpectedly.
     Worker,
 }
+impl DiscoveryError {
+    /// Deferred, sanitized explanation for a localized presentation layer.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::NoCertificates => {
+                Text::new("Prepare current own-device certificates before searching.")
+            }
+            Self::Network => Text::new(
+                "Local-network discovery could not run. Check the network and mDNS access.",
+            ),
+            Self::Advertisement => Text::new("An unsupported Nearby advertisement was rejected."),
+            Self::Limit => Text::new("Local-network discovery reached its event limit."),
+            Self::Cancelled => Text::new("Local-network discovery was cancelled."),
+            Self::Worker => Text::new("The local-network discovery worker stopped."),
+        }
+    }
+}
 impl fmt::Display for DiscoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::NoCertificates => "Prepare current own-device certificates before searching.",
-            Self::Network => {
-                "Local-network discovery could not run. Check the network and mDNS access."
-            }
-            Self::Advertisement => "An unsupported Nearby advertisement was rejected.",
-            Self::Limit => "Local-network discovery reached its event limit.",
-            Self::Cancelled => "Local-network discovery was cancelled.",
-            Self::Worker => "The local-network discovery worker stopped.",
-        })
+        self.text().fmt(f)
     }
 }
 impl std::error::Error for DiscoveryError {}

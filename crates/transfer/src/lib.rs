@@ -2,11 +2,12 @@
 //!
 //! Production callers must establish certificate-backed peer trust and explicit
 //! acceptance before file content. The desktop wires an explicit outgoing
-//! operation to a recently certificate-matched candidate. This crate does not
-//! discover or advertise devices and does not open a production file receiver.
+//! operation to a recently certificate-matched candidate and a private receiver.
+//! Account grants and OS radio discovery stay outside this crate.
 
 mod file;
 mod incoming;
+mod limits;
 mod loopback;
 mod outgoing;
 mod session;
@@ -27,8 +28,8 @@ pub use loopback::{SelfTestReport, run_loopback_self_test};
 pub use nearlane_protocol::wire::FileMetadata as FileOffer;
 use nearlane_protocol::{secure::ChannelError, wire::WireError};
 
-/// Conservative default per-file limit; configurable by a future consent screen.
-pub const DEFAULT_MAX_FILE_BYTES: u64 = 1024 * 1024 * 1024;
+/// Shared per-file policy; buffers stay bounded independently of total length.
+pub const DEFAULT_MAX_FILE_BYTES: u64 = nearlane_core::MAX_FILE_BYTES;
 
 /// Explicit cancellation, checked between bounded chunks. The socket owner must
 /// also use IO deadlines so a stalled peer cannot block cancellation indefinitely.

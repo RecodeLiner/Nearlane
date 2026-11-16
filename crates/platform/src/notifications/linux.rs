@@ -91,9 +91,9 @@ async fn run_on_proxy(
     let actions = Actions::new()?;
     let buttons = vec![
         actions.accept.as_str(),
-        "Accept",
+        request.accept.as_str(),
         actions.decline.as_str(),
-        "Decline",
+        request.decline.as_str(),
     ];
     let body = request.body(caps.iter().any(|c| c == "body-markup"));
     let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
@@ -107,7 +107,7 @@ async fn run_on_proxy(
                 "Nearlane",
                 0_u32,
                 "folder-download",
-                "Incoming file",
+                request.title.as_str(),
                 body.as_str(),
                 buttons,
                 hints,
@@ -175,6 +175,7 @@ mod tests {
 
     struct MockNotifications {
         action: Option<FileAction>,
+        localized: bool,
         closed: Arc<std::sync::atomic::AtomicU32>,
     }
     #[zbus::interface(name = "org.freedesktop.Notifications")]
@@ -198,9 +199,33 @@ mod tests {
             assert_eq!(app, "Nearlane");
             assert_eq!(replaces, 0);
             assert_eq!(icon, "folder-download");
-            assert_eq!(summary, "Incoming file");
+            assert_eq!(
+                summary,
+                if self.localized {
+                    "Входящий файл"
+                } else {
+                    "Incoming file"
+                }
+            );
             assert!(body.contains("&lt;own device&gt;"));
             assert_eq!(actions.len(), 4);
+            assert_eq!(
+                actions[1],
+                if self.localized {
+                    "Принять"
+                } else {
+                    "Accept"
+                }
+            );
+            assert_eq!(
+                actions[3],
+                if self.localized {
+                    "Отклонить"
+                } else {
+                    "Decline"
+                }
+            );
+            assert!(body.ends_with(if self.localized { "94 Б" } else { "94 bytes" }));
             assert!(hints.contains_key("desktop-entry"));
             assert_eq!(timeout, 55_000);
             // A foreign ID or stale/unscoped key must never win the decision.
@@ -246,6 +271,7 @@ mod tests {
                         "/org/freedesktop/Notifications",
                         MockNotifications {
                             action,
+                            localized: i == 1,
                             closed: Arc::clone(&closed),
                         },
                     )
@@ -276,7 +302,12 @@ mod tests {
                 } else {
                     None
                 };
-                let request = FileNotification::new("<own device>", "test.txt", 94).unwrap();
+                let mut request = FileNotification::new("<own device>", "test.txt", 94).unwrap();
+                if i == 1 {
+                    request = request
+                        .localized("Входящий файл", "Принять", "Отклонить", "94 Б")
+                        .unwrap();
+                }
                 let result = tokio::time::timeout(
                     Duration::from_secs(5),
                     run_on_proxy(request, cancel, shown, &proxy),

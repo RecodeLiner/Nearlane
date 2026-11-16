@@ -1,4 +1,6 @@
 //! UI-thread coordinator; the platform worker never decides file access itself.
+use crate::i18n::{text, tr};
+use nearlane_core::Text;
 use nearlane_platform::notifications::{
     ActionNotification, FileAction, FileNotification, NotificationError,
 };
@@ -25,6 +27,15 @@ impl OfferNotifications {
             if enabled {
                 if let Some(offer) = service.incoming_offer() {
                     self.job = FileNotification::new(&offer.sender, &offer.name, offer.bytes)
+                        .and_then(|request| {
+                            request.localized(
+                                &tr("Incoming file").to_string(),
+                                &tr("Accept").to_string(),
+                                &tr("Decline").to_string(),
+                                &text(&Text::with_args("%1 B", [Text::literal(offer.bytes)]))
+                                    .to_string(),
+                            )
+                        })
                         .and_then(ActionNotification::show)
                         .ok();
                     self.suppress_fallback = self.job.is_some();

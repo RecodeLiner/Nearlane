@@ -33,18 +33,18 @@ ScrollView {
                     tokens: page.tokens
                     role: "title"
                     color: page.backend.receiving_active ? page.tokens.primaryContainerText : page.tokens.surfaceText
-                    text: page.backend.receiving_active ? qsTr("Доступен вашим устройствам") : !page.backend.account_authorized ? qsTr("Для приёма нужен вход") : page.backend.background_receiving ? qsTr("Подготовка приёма") : qsTr("Приём выключен")
+                    text: page.backend.receiving_active ? qsTranslate("Ui", "Available to your devices") : !page.backend.account_authorized ? qsTranslate("Ui", "Sign in to receive files") : page.backend.background_receiving ? qsTranslate("Ui", "Preparing to receive") : qsTranslate("Ui", "Receiving is off")
                     Layout.fillWidth: true
                 }
                 UI.BodyText {
                     tokens: page.tokens
                     color: page.backend.receiving_active ? page.tokens.primaryContainerText : page.tokens.surfaceVariantText
-                    text: page.backend.receiving_active ? qsTr("На телефоне выберите файл → Quick Share → Nearlane. Окно можно свернуть: приложение продолжит работать в трее.") : !page.backend.account_authorized ? qsTr("Подключите тот же Google-аккаунт, что и на телефоне.") : page.backend.background_receiving ? qsTr("Приём начнётся после подготовки приватных ключей. Если ожидание затянулось, проверьте состояние в настройках.") : qsTr("Включите приём, чтобы телефон мог найти этот компьютер.")
+                    text: page.backend.receiving_active ? qsTranslate("Ui", "On your phone, choose a file → Quick Share → Nearlane. You can minimize this window; the app will keep running in the system tray.") : !page.backend.account_authorized ? qsTranslate("Ui", "Connect the same Google account you use on your phone.") : page.backend.background_receiving ? qsTranslate("Ui", "Receiving will start once private keys are ready. If this takes too long, check the status in Settings.") : qsTranslate("Ui", "Enable receiving so your phone can find this computer.")
                     Layout.fillWidth: true
                 }
                 UI.ActionButton {
                     tokens: page.tokens
-                    text: page.backend.receiving_active ? qsTr("Остановить приём") : !page.backend.account_authorized ? qsTr("Перейти к аккаунту") : qsTr("Включить приём")
+                    text: page.backend.receiving_active ? qsTranslate("Ui", "Stop receiving") : !page.backend.account_authorized ? qsTranslate("Ui", "Go to account") : qsTranslate("Ui", "Enable receiving")
                     primary: !page.backend.receiving_active
                     enabled: !page.backend.account_authorized || (!page.backend.transfer_busy && !page.backend.account_busy)
                     onClicked: {
@@ -64,7 +64,7 @@ ScrollView {
             spacing: 12
             UI.BodyText {
                 tokens: page.tokens
-                text: qsTr("Принять файл?")
+                text: qsTranslate("Ui", "Accept this file?")
                 role: "title"
                 Layout.fillWidth: true
             }
@@ -77,20 +77,20 @@ ScrollView {
                 Layout.fillWidth: true
                 UI.ActionButton {
                     tokens: page.tokens
-                    text: qsTr("Принять")
+                    text: qsTranslate("Ui", "Accept")
                     primary: true
                     onClicked: page.backend.decide_incoming(true)
                 }
                 UI.ActionButton {
                     tokens: page.tokens
-                    text: qsTr("Отклонить")
+                    text: qsTranslate("Ui", "Decline")
                     onClicked: page.backend.decide_incoming(false)
                 }
             }
         }
         UI.BodyText {
             tokens: page.tokens
-            text: qsTr("Папка для файлов")
+            text: qsTranslate("Ui", "Download folder")
             role: "title"
             Layout.fillWidth: true
         }
@@ -102,27 +102,27 @@ ScrollView {
         }
         UI.ActionButton {
             tokens: page.tokens
-            text: qsTr("Настроить приём")
+            text: qsTranslate("Ui", "Receiving settings")
             symbolName: "settings"
             onClicked: page.openSettings()
         }
         UI.BodyText {
             tokens: page.tokens
-            text: qsTr("Подтверждение передачи")
+            text: qsTranslate("Ui", "Transfer confirmation")
             role: "title"
             Layout.fillWidth: true
         }
         UI.BodyText {
             tokens: page.tokens
             secondary: true
-            text: page.backend.confirm_each_file ? qsTr("Для каждого файла появится запрос. Можно принять или отклонить передачу прямо в уведомлении.") : qsTr("Файлы от проверенных устройств вашего аккаунта принимаются автоматически. После сохранения появится уведомление.")
+            text: page.backend.confirm_each_file ? qsTranslate("Ui", "Each file will need your confirmation. You can accept or decline directly in the notification.") : qsTranslate("Ui", "Files from verified devices on your account are accepted automatically. A notification will appear once a file is saved.")
             Layout.fillWidth: true
         }
         UI.BodyText {
             tokens: page.tokens
             secondary: true
             role: "label"
-            text: qsTr("Один файл до 64 МиБ. Существующие файлы не перезаписываются.")
+            text: qsTranslate("Ui", "One file up to 64 GiB. Existing files are never overwritten.")
             Layout.fillWidth: true
         }
         UI.BodyText {

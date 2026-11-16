@@ -1,4 +1,5 @@
 //! Explicit private receiver. The worker owns trust, consent, IO and staging.
+use nearlane_core::Text;
 #[cfg(test)]
 mod tests;
 use crate::{
@@ -24,7 +25,7 @@ use std::{
 
 /// Stable Wi-Fi receiver port, matching the existing local Quick Share rule.
 pub const RECEIVE_PORT: u16 = 7364;
-const MAX_RECEIVE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_RECEIVE_BYTES: u64 = nearlane_core::MAX_FILE_BYTES;
 
 /// Details exposed only after account-backed live mutual private verification.
 #[derive(Clone)]
@@ -33,7 +34,7 @@ pub struct IncomingOffer {
     pub sender: String,
     /// Validated single basename, rendered as plain text in the UI.
     pub name: String,
-    /// Proposed size, bounded to 64 MiB.
+    /// Proposed size, bounded by the shared per-file policy.
     pub bytes: u64,
 }
 impl fmt::Debug for IncomingOffer {
@@ -67,16 +68,26 @@ pub enum ReceivePhase {
 impl ReceivePhase {
     /// Plain status text without names, credentials, paths or addresses.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self {
-            Self::Starting => "Starting private Wi-Fi reception…".into(),
-            Self::Listening => "Ready to receive from your own devices.".into(),
-            Self::Negotiating => "Establishing the incoming encrypted Nearby connection…".into(),
-            Self::Verifying => "Verifying the incoming device's private keys…".into(),
-            Self::AwaitingConsent => {
-                "A verified own device wants to send a file. Accept or decline below.".into()
+            Self::Starting => Text::new("Starting private Wi-Fi reception…"),
+            Self::Listening => Text::new("Ready to receive from your own devices."),
+            Self::Negotiating => {
+                Text::new("Establishing the incoming encrypted Nearby connection…")
             }
-            Self::Receiving { bytes, total } => format!("Receiving {bytes} of {total} bytes…"),
-            Self::Saving => "Saving the complete file…".into(),
+            Self::Verifying => Text::new("Verifying the incoming device's private keys…"),
+            Self::AwaitingConsent => {
+                Text::new("A verified own device wants to send a file. Accept or decline below.")
+            }
+            Self::Receiving { bytes, total } => Text::with_args(
+                "Receiving %1 of %2 bytes…",
+                [Text::literal(bytes), Text::literal(total)],
+            ),
+            Self::Saving => Text::new("Saving the complete file…"),
         }
     }
 }
@@ -108,28 +119,47 @@ pub enum ReceiveFailure {
     /// Background worker could not start or stopped unexpectedly.
     Worker,
 }
+impl ReceiveFailure {
+    /// Deferred, sanitized explanation for a localized presentation layer.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Handshake(step) => Text::with_args(
+                "Incoming connection failed at %1. No file was accepted.",
+                [Text::literal(format!("{step:?}"))],
+            ),
+            Self::Listen => Text::new(
+                "Could not open the receiving port. Close another Quick Share receiver and retry.",
+            ),
+            Self::Advertisement => Text::new(
+                "Private Wi-Fi advertisement could not start. Check the local network and mDNS.",
+            ),
+            Self::Identity => {
+                Text::new("Current own-device keys are unavailable. Prepare your devices again.")
+            }
+            Self::Untrusted => Text::new(
+                "The incoming device could not be privately verified. No file was accepted.",
+            ),
+            Self::Protocol => Text::new("An unsupported incoming transfer was rejected."),
+            Self::Declined => Text::new("Incoming file declined. No file was saved."),
+            Self::Cancelled => Text::new(
+                "Reception stopped. Incomplete temporary files are removed; completed files are kept.",
+            ),
+            Self::TimedOut => {
+                Text::new("Private receiving expired. Start receiving again when ready.")
+            }
+            Self::File => Text::new(
+                "Could not save the file without replacing an existing file. Choose a writable destination.",
+            ),
+            Self::Connection => {
+                Text::new("The incoming connection stopped before the file was saved.")
+            }
+            Self::Worker => Text::new("The receiver worker stopped unexpectedly."),
+        }
+    }
+}
 impl fmt::Display for ReceiveFailure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Self::Handshake(step) = self {
-            return write!(
-                f,
-                "Incoming connection failed at {step:?}. No file was accepted."
-            );
-        }
-        f.write_str(match self {
-            Self::Handshake(_)=>unreachable!(),
-            Self::Listen => "Could not open the receiving port. Close another Quick Share receiver and retry.",
-            Self::Advertisement => "Private Wi-Fi advertisement could not start. Check the local network and mDNS.",
-            Self::Identity => "Current own-device keys are unavailable. Prepare your devices again.",
-            Self::Untrusted => "The incoming device could not be privately verified. No file was accepted.",
-            Self::Protocol => "An unsupported incoming transfer was rejected.",
-            Self::Declined => "Incoming file declined. No file was saved.",
-            Self::Cancelled => "Reception stopped. Incomplete temporary files are removed; completed files are kept.",
-            Self::TimedOut => "Private receiving expired. Start receiving again when ready.",
-            Self::File => "Could not save the file without replacing an existing file. Choose a writable destination.",
-            Self::Connection => "The incoming connection stopped before the file was saved.",
-            Self::Worker => "The receiver worker stopped unexpectedly.",
-        })
+        self.text().fmt(f)
     }
 }
 impl std::error::Error for ReceiveFailure {}
@@ -439,6 +469,7 @@ impl Context {
                     .map_err(|_| ReceiveFailure::Protocol)?,
             )
             .map_err(protocol)?;
+        session.begin_file_transfer();
         self.phase(ReceivePhase::Receiving {
             bytes: 0,
             total: offer.size,
@@ -456,7 +487,11 @@ impl Context {
                     _ => return Err(ReceiveFailure::Protocol),
                 },
                 Event::File(chunk) => {
-                    let done = sink.apply(&chunk).map_err(|_| ReceiveFailure::Protocol)?;
+                    let done = sink.apply(&chunk).map_err(|error| match error {
+                        TransferError::Io(_) => ReceiveFailure::File,
+                        _ => ReceiveFailure::Protocol,
+                    })?;
+                    session.file_progress();
                     self.phase(ReceivePhase::Receiving {
                         bytes: chunk.offset + chunk.body.len() as u64,
                         total: offer.size,

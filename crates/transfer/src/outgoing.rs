@@ -1,5 +1,8 @@
 //! Explicit single-file outgoing operation, bound to a certificate-matched
 //! discovery result. No scanning, Google tokens, incoming listener or redirects.
+use nearlane_core::Text;
+#[cfg(test)]
+mod large_tests;
 #[cfg(test)]
 mod tests;
 use crate::{
@@ -24,8 +27,8 @@ use std::{
     time::Duration,
 };
 
-/// Initial outgoing-file limit, independent of the protocol's streaming bounds.
-pub const MAX_OUTGOING_BYTES: u64 = 64 * 1024 * 1024;
+/// Outgoing policy, independent of the protocol's bounded streaming buffers.
+pub const MAX_OUTGOING_BYTES: u64 = nearlane_core::MAX_FILE_BYTES;
 /// Safe progress phases; never includes network addresses, file paths or keys.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SendPhase {
@@ -68,21 +71,30 @@ impl Default for SendProgress {
 impl SendProgress {
     /// Plain progress text, independent of credentials or file/device identifiers.
     pub fn message(self) -> String {
+        self.text().to_string()
+    }
+
+    /// Deferred text for a localized presentation layer.
+    pub fn text(self) -> Text {
         match self.phase {
-            SendPhase::Preparing => "Preparing the selected file…".into(),
-            SendPhase::Connecting => "Connecting to the selected own device…".into(),
-            SendPhase::Securing => "Establishing the encrypted Nearby connection…".into(),
-            SendPhase::Verifying => "Checking private device keys in both directions…".into(),
-            SendPhase::AwaitingAcceptance => "Waiting for the phone to accept the file…".into(),
-            SendPhase::Sending => {
-                format!("Sending {} of {} bytes…", self.bytes_sent, self.total_bytes)
-            }
+            SendPhase::Preparing => Text::new("Preparing the selected file…"),
+            SendPhase::Connecting => Text::new("Connecting to the selected own device…"),
+            SendPhase::Securing => Text::new("Establishing the encrypted Nearby connection…"),
+            SendPhase::Verifying => Text::new("Checking private device keys in both directions…"),
+            SendPhase::AwaitingAcceptance => Text::new("Waiting for the phone to accept the file…"),
+            SendPhase::Sending => Text::with_args(
+                "Sending %1 of %2 bytes…",
+                [
+                    Text::literal(self.bytes_sent),
+                    Text::literal(self.total_bytes),
+                ],
+            ),
             SendPhase::AwaitingConfirmation => {
-                "File bytes sent. Waiting for the phone's acknowledgement…".into()
+                Text::new("File bytes sent. Waiting for the phone's acknowledgement…")
             }
-            SendPhase::Completed => format!(
-                "The verified device acknowledged {} bytes.",
-                self.total_bytes
+            SendPhase::Completed => Text::with_args(
+                "The verified device acknowledged %1 bytes.",
+                [Text::literal(self.total_bytes)],
             ),
         }
     }
@@ -121,42 +133,65 @@ pub struct SendFailure {
     /// Sanitized category.
     pub kind: SendFailureKind,
 }
-impl fmt::Display for SendFailure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl SendFailure {
+    /// Deferred, sanitized explanation with a separately translated stage.
+    pub fn text(&self) -> Text {
         let message = match self.kind {
-            SendFailureKind::File => {
-                "Choose an unchanged regular file up to 64 MiB with a supported filename."
-            }
+            SendFailureKind::File => Text::new(
+                "Choose an unchanged regular file up to 64 GiB with a supported filename.",
+            ),
             SendFailureKind::Identity => {
-                "Current own-device certificates are unavailable. Retry device setup."
+                Text::new("Current own-device certificates are unavailable. Retry device setup.")
             }
             SendFailureKind::StaleDiscovery => {
-                "This discovery result expired. Find your devices again."
+                Text::new("This discovery result expired. Find your devices again.")
             }
             SendFailureKind::Connection => {
-                "The Nearby connection could not be established securely."
+                Text::new("The Nearby connection could not be established securely.")
             }
-            SendFailureKind::Prelude(step) => {
-                return write!(
-                    f,
-                    "Nearby connection prelude failed at {step:?}. No file content was sent. (stage: {:?})",
-                    self.phase
-                );
+            SendFailureKind::Prelude(step) => Text::with_args(
+                "Nearby connection prelude failed at %1. No file content was sent.",
+                [Text::literal(format!("{step:?}"))],
+            ),
+            SendFailureKind::PrivateVerification => Text::new(
+                "Mutual private-device verification failed. The phone may not yet have this computer's current certificate. No file content was sent.",
+            ),
+            SendFailureKind::Rejected => {
+                Text::new("The receiving device declined or cancelled the transfer.")
             }
-            SendFailureKind::PrivateVerification => {
-                "Mutual private-device verification failed. The phone may not yet have this computer's current certificate. No file content was sent."
+            SendFailureKind::Protocol => {
+                Text::new("The peer sent an unsupported or out-of-sequence message.")
             }
-            SendFailureKind::Rejected => "The receiving device declined or cancelled the transfer.",
-            SendFailureKind::Protocol => "The peer sent an unsupported or out-of-sequence message.",
-            SendFailureKind::ConfirmationMissing => {
-                "File bytes were sent, but the phone's acknowledgement was not received. Check the phone before retrying."
-            }
+            SendFailureKind::ConfirmationMissing => Text::new(
+                "File bytes were sent, but the phone's acknowledgement was not received. Check the phone before retrying.",
+            ),
             SendFailureKind::Cancelled => {
-                "Transfer cancelled. A file already sent may still be on the phone."
+                Text::new("Transfer cancelled. A file already sent may still be on the phone.")
             }
-            SendFailureKind::Worker => "The transfer worker stopped unexpectedly.",
+            SendFailureKind::Worker => Text::new("The transfer worker stopped unexpectedly."),
         };
-        write!(f, "{message} (stage: {:?})", self.phase)
+
+        Text::with_args("%1 (stage: %2)", [message, self.phase.text()])
+    }
+}
+impl SendPhase {
+    /// Localizable stage name, without progress values or private metadata.
+    pub fn text(self) -> Text {
+        Text::new(match self {
+            Self::Preparing => "Preparing",
+            Self::Connecting => "Connecting",
+            Self::Securing => "Securing",
+            Self::Verifying => "Verifying",
+            Self::AwaitingAcceptance => "Awaiting acceptance",
+            Self::Sending => "Sending",
+            Self::AwaitingConfirmation => "Awaiting confirmation",
+            Self::Completed => "Completed",
+        })
+    }
+}
+impl fmt::Display for SendFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.text().fmt(f)
     }
 }
 impl std::error::Error for SendFailure {}

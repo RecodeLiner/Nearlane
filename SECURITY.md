@@ -117,7 +117,7 @@ and frame shapes, not Google-backed peer identity or a full Android connection.
 The incoming worker accepts private/link-local IPv4 peers only and requires
 matched active own-device metadata plus full mutual private proofs. Only then
 may the introduction and a local consent prompt be displayed. No file content
-is accepted before the policy decision, and one file up to 64 MiB is supported.
+is accepted before the policy decision, and one file up to 64 GiB is supported.
 The desktop defaults to automatic approval of verified own-device offers;
 optional per-file confirmation uses the same decision gate. The listener
 uses a ten-minute waiting window, sixteen attempt bound, fifteen-second absolute
@@ -147,42 +147,55 @@ workers; saved preferences alone cannot establish trust or revive a session.
 Stop receiving persists disabled visibility. Storage/listener/identity failures
 stop retries until an explicit retry or app restart.
 
-When confirmation is enabled, Linux native notification actions are scoped to
-the returned server ID, a random per-notification action key and a monotonic
-service-offer generation. Expiry, cancellation and stale actions cannot approve
-a later file. The sender/file name and byte count are shown only after private
-verification; markup is escaped. Completed-file notifications are generic. No
-notification includes paths, account grants, keys or file content. Servers without
-action support fall back to the application consent UI.
-The desktop's default destination uses the OS Downloads location plus Nearlane,
-created only when reception is enabled; remote data cannot choose that folder.
-Native KDE checks verified tray availability, close/show behavior, the default
-destination after login cancellation/sign-out, and notification invocation. A
-native continuous-watch test verified appearance and withdrawal of only an
-owned synthetic advertisement, without account access. Cross-platform tray and
-Bluetooth behavior are not verified.
-The outgoing desktop operation opens only an explicitly selected regular file,
-up to 64 MiB, on a worker. Unix source opens are nonblocking and refuse symlinks.
-Its connection prelude is plain request, UKEY2, then mutual plain acceptance
-before encryption. Only after private proof may an introduction be sent; only
-after receiver acceptance may file content be sent. Selected destinations expire
-after 120 seconds; no peer-supplied address or Wi-Fi upgrade is followed.
-Control fragments, payload IDs and counts are bounded, keep-alives are answered
-during upload, and an absolute socket deadline bounds partial trickle frames.
-Only a matching file ACK after EOF confirms delivery. Legacy acceptance without
-this optional feature is supported and never weakens mutual private proof. No
-payload ACK is sent when not negotiated. A five-second post-EOF grace period
-for such peers prevents keep-alives from prolonging an impossible receipt wait.
-The bounded safe-close exchange follows confirmed or unconfirmed EOF; it cannot
-undo an ACK or turn an unconfirmed upload into confirmed delivery. Chunks carry
-monotonic indices and a separate terminal chunk matching the public sender.
-Cancellation/sign-out shut down the established
-socket and discard late results. Slow filesystem operations are outside socket
-cancellation guarantees. Full outgoing automated tests use simulated owned peers.
-An authorized test on a real Android phone confirmed that a
-94-byte text file was received and opens after mutual private verification and
-receiver acceptance. The phone advertised version 4 and closed without a file
-receipt. Background operation and large-file Android behavior are not verified.
+When confirmation is enabled, Linux native notification actions are scoped to the
+returned server ID, a random per-notification action key and a monotonic service-offer
+generation. Expiry, cancellation and stale actions cannot approve a later file. The
+sender/file name and byte count are shown only after private verification; markup is
+escaped. Completed-file notifications are generic. No notification includes paths,
+account grants, keys or file content. Servers without action support fall back to the
+application consent UI. The desktop's default destination uses the OS Downloads location
+plus Nearlane, created only when reception is enabled; remote data cannot choose that
+folder. Native KDE checks verified tray availability, close/show behavior, the default
+destination after login cancellation/sign-out, and notification invocation. A native
+continuous-watch test verified appearance and withdrawal of only an owned synthetic
+advertisement, without account access. Cross-platform tray/radio behavior remains
+untested. Private BLE discovery on Linux is verified with the Android screen off;
+screen-off Wi-Fi bootstrap is not. The outgoing desktop operation opens only an
+explicitly selected regular file, up to 64 GiB, on a worker. Unix source opens are
+nonblocking and refuse symlinks. Its connection prelude is plain request, UKEY2, then
+mutual plain acceptance before encryption. Only after private proof may an introduction
+be sent; only after receiver acceptance may file content be sent. Selected destinations
+expire after 120 seconds; no peer-supplied address or Wi-Fi upgrade is followed. Control
+fragments, payload IDs and counts are bounded, keep-alives are answered during upload,
+and an absolute socket deadline bounds partial trickle frames. The frame deadline is
+reset only at a complete encrypted-frame boundary. During file streaming, validated file
+progress renews a separate 90-second idle budget, with a finite 24-hour total budget;
+keep-alives cannot renew it. Files use bounded chunks regardless of total size. A
+per-minute control budget replaces a lifetime frame count, so file data above 512 MiB
+does not exhaust a control limit. Storage write failures stop reception and remove
+incomplete staging. Only a matching file ACK after EOF confirms delivery. Legacy
+acceptance without this optional feature is supported and never weakens mutual private
+proof. No payload ACK is sent when not negotiated. A five-second post-EOF grace period
+for such peers prevents keep-alives from prolonging an impossible receipt wait. The
+bounded safe-close exchange follows confirmed or unconfirmed EOF; it cannot undo an ACK
+or turn an unconfirmed upload into confirmed delivery. Chunks carry monotonic indices
+and a separate terminal chunk matching the public sender. Cancellation/sign-out shut
+down the established socket and discard late results. Slow filesystem operations are
+outside socket cancellation guarantees. Full outgoing automated tests use simulated
+owned peers. An authorized test on a real Android phone confirmed that a 94-byte text
+file was received and opens after mutual private verification and receiver acceptance.
+The phone advertised version 4 and closed without a file receipt. Screen-off Wi-Fi
+bootstrap and large-file Android delivery are not verified.
+
+Qt Bluetooth supplies only bounded FEF3 hints, matched to current own-device
+certificates in Rust before a name is exposed. Bluetooth local names/addresses
+are not trusted and no BLE-only hint is a send target. Full Wi-Fi live proofs
+remain required. Linux's optional silent FE2C discovery signal carries no account
+identifier; it never enables public receiving or pairs with unknown devices.
+It is scoped to an authorized foreground Send surface and its own bounded BlueZ
+lease. The shared scanner uses native CoreBluetooth on macOS, but the public
+Apple API cannot emit this raw wake packet; that capability is not claimed there.
+Radio/OS errors do not cause a public fallback or alter global Bluetooth power.
 See docs/research/native-outgoing.md.
 
 The file sink enforces size/ID/type/offset/EOF

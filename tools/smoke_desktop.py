@@ -59,6 +59,8 @@ def check(binary, args, config, settings):
         if (
             result.returncode != 0
             or "smoke: QML loaded" not in output
+            or "smoke: live translations checked" not in output
+            or "smoke: language preference persisted; synthetic settings only" not in output
             or "smoke: policy checked; device remains hidden" not in output
             or "smoke: local sign-in cancelled; device remains hidden" not in output
             or "smoke: signed out; device remains hidden" not in output
