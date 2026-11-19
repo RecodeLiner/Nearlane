@@ -228,6 +228,10 @@
       <translation>File bytes were sent, but the phone's acknowledgement was not received. Check the phone before retrying.</translation>
     </message>
     <message>
+      <source>File received</source>
+      <translation>File received</translation>
+    </message>
+    <message>
       <source>File saved: %1 bytes. Preparing to receive another file.</source>
       <translation>File saved: %1 bytes. Preparing to receive another file.</translation>
     </message>
@@ -496,6 +500,10 @@
       <translation>The Nearby connection could not be established securely.</translation>
     </message>
     <message>
+      <source>The file was saved to the selected folder.</source>
+      <translation>The file was saved to the selected folder.</translation>
+    </message>
+    <message>
       <source>The in-memory session expired. Sign in again.</source>
       <translation>The in-memory session expired. Sign in again.</translation>
     </message>
@@ -615,10 +623,6 @@
   <context>
     <name>Ui</name>
     <message>
-      <source>%1 · found via Bluetooth, waiting for Wi-Fi</source>
-      <translation>%1 · found via Bluetooth, waiting for Wi-Fi</translation>
-    </message>
-    <message>
       <source>About Nearlane</source>
       <translation>About Nearlane</translation>
     </message>
@@ -631,28 +635,12 @@
       <translation>Accept this file?</translation>
     </message>
     <message>
-      <source>Account</source>
-      <translation>Account</translation>
-    </message>
-    <message>
-      <source>Account connected</source>
-      <translation>Account connected</translation>
-    </message>
-    <message>
-      <source>Account not connected</source>
-      <translation>Account not connected</translation>
-    </message>
-    <message>
       <source>Ask before receiving</source>
       <translation>Ask before receiving</translation>
     </message>
     <message>
       <source>Available to your devices</source>
       <translation>Available to your devices</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Cancel</translation>
     </message>
     <message>
       <source>Cancel sign-in</source>
@@ -669,10 +657,6 @@
     <message>
       <source>Check contacts support</source>
       <translation>Check contacts support</translation>
-    </message>
-    <message>
-      <source>Choose a file</source>
-      <translation>Choose a file</translation>
     </message>
     <message>
       <source>Choose a file and the device to send it to.</source>
@@ -695,36 +679,8 @@
       <translation>Close</translation>
     </message>
     <message>
-      <source>Configuration file: %1</source>
-      <translation>Configuration file: %1</translation>
-    </message>
-    <message>
-      <source>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</source>
-      <translation>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</translation>
-    </message>
-    <message>
       <source>Connect the same Google account you use on your phone.</source>
       <translation>Connect the same Google account you use on your phone.</translation>
-    </message>
-    <message>
-      <source>Connect your Google account</source>
-      <translation>Connect your Google account</translation>
-    </message>
-    <message>
-      <source>Connect your account in Settings</source>
-      <translation>Connect your account in Settings</translation>
-    </message>
-    <message>
-      <source>Could not open the receiving port. Close another Quick Share receiver and retry.</source>
-      <translation>Could not open the receiving port. Close another Quick Share receiver and retry.</translation>
-    </message>
-    <message>
-      <source>Could not restore sign-in. Retry saved sign-in.</source>
-      <translation>Could not restore sign-in. Retry saved sign-in.</translation>
-    </message>
-    <message>
-      <source>Could not save settings. Check access to the configuration folder.</source>
-      <translation>Could not save settings. Check access to the configuration folder.</translation>
     </message>
     <message>
       <source>Decline</source>
@@ -733,14 +689,6 @@
     <message>
       <source>Discover devices over Wi-Fi and Bluetooth. Transfer files over Wi-Fi.</source>
       <translation>Discover devices over Wi-Fi and Bluetooth. Transfer files over Wi-Fi.</translation>
-    </message>
-    <message>
-      <source>Download folder</source>
-      <translation>Download folder</translation>
-    </message>
-    <message>
-      <source>Each file will need your confirmation. You can accept or decline directly in the notification.</source>
-      <translation>Each file will need your confirmation. You can accept or decline directly in the notification.</translation>
     </message>
     <message>
       <source>Enable receiving</source>
@@ -759,14 +707,6 @@
       <translation>Experimental version: one file up to 64 GiB, over Wi-Fi on the same network. Bluetooth helps discovery; Contacts mode is not available yet. Use a test account for testing.</translation>
     </message>
     <message>
-      <source>File received</source>
-      <translation>File received</translation>
-    </message>
-    <message>
-      <source>Files from verified devices on your account are accepted automatically. A notification will appear once a file is saved.</source>
-      <translation>Files from verified devices on your account are accepted automatically. A notification will appear once a file is saved.</translation>
-    </message>
-    <message>
       <source>Find devices in the background</source>
       <translation>Find devices in the background</translation>
     </message>
@@ -783,56 +723,20 @@
       <translation>Google account</translation>
     </message>
     <message>
-      <source>Incoming file</source>
-      <translation>Incoming file</translation>
-    </message>
-    <message>
-      <source>Interface language</source>
-      <translation>Interface language</translation>
-    </message>
-    <message>
-      <source>JSON files (*.json)</source>
-      <translation>JSON files (*.json)</translation>
-    </message>
-    <message>
       <source>Language</source>
       <translation>Language</translation>
-    </message>
-    <message>
-      <source>Looking for your devices…</source>
-      <translation>Looking for your devices…</translation>
     </message>
     <message>
       <source>Nearby devices</source>
       <translation>Nearby devices</translation>
     </message>
     <message>
-      <source>Nearlane · Receiving from your devices</source>
-      <translation>Nearlane · Receiving from your devices</translation>
-    </message>
-    <message>
-      <source>Nearlane · Running in the background</source>
-      <translation>Nearlane · Running in the background</translation>
-    </message>
-    <message>
-      <source>No devices nearby yet</source>
-      <translation>No devices nearby yet</translation>
-    </message>
-    <message>
       <source>On your phone, choose a file → Quick Share → Nearlane. You can minimize this window; the app will keep running in the system tray.</source>
       <translation>On your phone, choose a file → Quick Share → Nearlane. You can minimize this window; the app will keep running in the system tray.</translation>
     </message>
     <message>
-      <source>One file up to 64 GiB. Existing files are never overwritten.</source>
-      <translation>One file up to 64 GiB. Existing files are never overwritten.</translation>
-    </message>
-    <message>
       <source>One file up to 64 GiB. The transfer will be encrypted.</source>
       <translation>One file up to 64 GiB. The transfer will be encrypted.</translation>
-    </message>
-    <message>
-      <source>Only devices on your account appear here. Private keys are verified when connecting. Files are transferred over Wi-Fi.</source>
-      <translation>Only devices on your account appear here. Private keys are verified when connecting. Files are transferred over Wi-Fi.</translation>
     </message>
     <message>
       <source>Open Nearlane</source>
@@ -843,28 +747,12 @@
       <translation>Preparing to receive</translation>
     </message>
     <message>
-      <source>Preparing your devices…</source>
-      <translation>Preparing your devices…</translation>
-    </message>
-    <message>
-      <source>Quick Share permission granted.</source>
-      <translation>Quick Share permission granted.</translation>
-    </message>
-    <message>
       <source>Quit</source>
       <translation>Quit</translation>
     </message>
     <message>
-      <source>Ready to receive from your own devices.</source>
-      <translation>Ready to receive from your own devices.</translation>
-    </message>
-    <message>
       <source>Receive</source>
       <translation>Receive</translation>
-    </message>
-    <message>
-      <source>Receive files</source>
-      <translation>Receive files</translation>
     </message>
     <message>
       <source>Receive from your devices</source>
@@ -875,32 +763,12 @@
       <translation>Receiving and discovery</translation>
     </message>
     <message>
-      <source>Receiving from your devices is enabled</source>
-      <translation>Receiving from your devices is enabled</translation>
-    </message>
-    <message>
       <source>Receiving is off</source>
       <translation>Receiving is off</translation>
     </message>
     <message>
-      <source>Receiving on this computer is off</source>
-      <translation>Receiving on this computer is off</translation>
-    </message>
-    <message>
-      <source>Receiving settings</source>
-      <translation>Receiving settings</translation>
-    </message>
-    <message>
-      <source>Receiving will start once private keys are ready. If this takes too long, check the status in Settings.</source>
-      <translation>Receiving will start once private keys are ready. If this takes too long, check the status in Settings.</translation>
-    </message>
-    <message>
       <source>Refresh</source>
       <translation>Refresh</translation>
-    </message>
-    <message>
-      <source>Restoring sign-in…</source>
-      <translation>Restoring sign-in…</translation>
     </message>
     <message>
       <source>Retry device setup</source>
@@ -915,24 +783,12 @@
       <translation>Save files to</translation>
     </message>
     <message>
-      <source>Searching for devices</source>
-      <translation>Searching for devices</translation>
-    </message>
-    <message>
-      <source>Select a device to send to</source>
-      <translation>Select a device to send to</translation>
-    </message>
-    <message>
       <source>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</source>
       <translation>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</translation>
     </message>
     <message>
       <source>Send</source>
       <translation>Send</translation>
-    </message>
-    <message>
-      <source>Send a file</source>
-      <translation>Send a file</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -955,32 +811,12 @@
       <translation>Sign in to receive files</translation>
     </message>
     <message>
-      <source>Sign in to the same account you use on your phone.</source>
-      <translation>Sign in to the same account you use on your phone.</translation>
-    </message>
-    <message>
       <source>Sign in with Google</source>
       <translation>Sign in with Google</translation>
     </message>
     <message>
       <source>Sign out</source>
       <translation>Sign out</translation>
-    </message>
-    <message>
-      <source>Sign-in configuration</source>
-      <translation>Sign-in configuration</translation>
-    </message>
-    <message>
-      <source>Sign-in status, private keys and device certificates</source>
-      <translation>Sign-in status, private keys and device certificates</translation>
-    </message>
-    <message>
-      <source>Signing in</source>
-      <translation>Signing in</translation>
-    </message>
-    <message>
-      <source>Signing in…</source>
-      <translation>Signing in…</translation>
     </message>
     <message>
       <source>Stop receiving</source>
@@ -995,32 +831,8 @@
       <translation>System default</translation>
     </message>
     <message>
-      <source>The file was saved to the selected folder.</source>
-      <translation>The file was saved to the selected folder.</translation>
-    </message>
-    <message>
-      <source>The folder and receiving preferences are remembered between sessions.</source>
-      <translation>The folder and receiving preferences are remembered between sessions.</translation>
-    </message>
-    <message>
       <source>The language changes immediately and is remembered for next time.</source>
       <translation>The language changes immediately and is remembered for next time.</translation>
-    </message>
-    <message>
-      <source>This computer usually has three certificates for consecutive periods. Other device names appear once discovered nearby. Old registrations may remain until their certificates expire.</source>
-      <translation>This computer usually has three certificates for consecutive periods. Other device names appear once discovered nearby. Old registrations may remain until their certificates expire.</translation>
-    </message>
-    <message>
-      <source>To change the folder, first turn off receiving above.</source>
-      <translation>To change the folder, first turn off receiving above.</translation>
-    </message>
-    <message>
-      <source>Transfer confirmation</source>
-      <translation>Transfer confirmation</translation>
-    </message>
-    <message>
-      <source>Transferring file</source>
-      <translation>Transferring file</translation>
     </message>
     <message>
       <source>Use the same account on your phone and computer. Nearlane remembers your sign-in in the system credential store.</source>
@@ -1033,14 +845,6 @@
     <message>
       <source>What would you like to send?</source>
       <translation>What would you like to send?</translation>
-    </message>
-    <message>
-      <source>Where to save received files</source>
-      <translation>Where to save received files</translation>
-    </message>
-    <message>
-      <source>Your device wants to send a file. Open Nearlane to accept or decline.</source>
-      <translation>Your device wants to send a file. Open Nearlane to accept or decline.</translation>
     </message>
   </context>
 </TS>

@@ -17,7 +17,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !arguments.is_empty() {
         return headless::run(&arguments);
     }
-    // Winit is explicitly selected at build time: this frontend has no Qt.
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .select()?;

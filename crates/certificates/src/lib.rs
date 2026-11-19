@@ -18,7 +18,7 @@ pub use local::LocalCertificate;
 pub use remote::{DeviceMetadata, RemoteCertificate};
 
 /// Trusted-worker handle to this session's private certificate and fresh
-/// advertisement material. Never send this handle or its fields to QML/logs.
+/// advertisement material. Keep the handle and its fields out of UI state and logs.
 pub struct OwnDeviceIdentity {
     /// Shared immutable signing credential; no private key serialization.
     pub certificate: std::sync::Arc<LocalCertificate>,

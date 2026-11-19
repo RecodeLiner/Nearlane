@@ -7,7 +7,7 @@ then transfer files over Wi-Fi. No Bluetooth file socket or network upgrade.
 
 The Qt adapter described below records the original implementation and hardware
 observations. Current code uses btleplug in crates/platform, coordinated by the
-shared application runtime for both Qt and Slint. Packet size, service UUID,
+shared application runtime. Packet size, service UUID,
 Apple name fallback, queue/rate bounds and certificate gates are preserved.
 The new adapter has parser tests but still needs a new real-phone/OS trial.
 The earlier Qt hardware observation does not establish that the Rust adapter

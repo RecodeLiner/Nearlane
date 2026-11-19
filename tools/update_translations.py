@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Update/check Qt TS catalogs for QML and deferred Rust presentation messages.
+"""Update/check TS catalogs for Slint and deferred Rust presentation messages.
 
-QML uses qsTranslate("Ui", ...). Rust uses Text::new/with_args or tr with
+Slint uses I18n.tr(...). Rust uses Text::new/with_args or tr with
 static English sources; no account name/path is ever interpreted as a source.
-Run without flags to add new unfinished entries, then translate in Qt Linguist.
+Run without flags to add new unfinished entries and remove unused ones.
 """
 import argparse
 import ast
@@ -34,12 +34,9 @@ def block(text, opening):
 
 def sources():
     found = {"Ui": set(), "Backend": set()}
-    for path in (ROOT / "apps/desktop/qml").rglob("*.qml"):
-        found["Ui"].update(decode(m[1]) for m in re.finditer(r'qsTranslate\("Ui",\s*(' + STRING + ')', path.read_text()))
     for path in (ROOT / "apps/slint/ui").rglob("*.slint"):
         found["Ui"].update(decode(m[1]) for m in re.finditer(r'I18n\.tr\(\s*(' + STRING + ')', path.read_text()))
-    paths = list((ROOT / "crates").rglob("*.rs")) + list((ROOT / "apps/desktop/src").glob("*.rs"))
-    for path in paths:
+    for path in (ROOT / "crates").rglob("*.rs"):
         if path == ROOT / "crates/core/src/text.rs": continue
         text = path.read_text()
         found["Backend"].update(decode(m[1]) for m in re.finditer(r'\b(?:Text::(?:new|with_args)|tr)\(\s*(' + STRING + ')', text))

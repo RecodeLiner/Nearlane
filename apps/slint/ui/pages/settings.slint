@@ -83,6 +83,14 @@ export component SettingsPage inherits ScrollView {
                 Body { text: root.state.private-status; }
                 Body { text: root.state.discovery-status; }
                 Body { text: root.state.bluetooth-status; }
+                if root.state.discovery-busy : HorizontalLayout {
+                    alignment: start;
+                    OutlineButton {
+                        horizontal-stretch: 0;
+                        text: I18n.tr("Stop searching");
+                        clicked => { Actions.action(Action.cancel-discovery); }
+                    }
+                }
                 for certificate in root.state.certificate-rows : Body { text: certificate; }
                 HorizontalLayout {
                     spacing: 12px; alignment: start;

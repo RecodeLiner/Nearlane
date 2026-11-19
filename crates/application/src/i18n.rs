@@ -91,13 +91,18 @@ mod tests {
             ),
             "phone %2 <b> Б"
         );
-        for xml in [
-            include_str!("../i18n/nearlane_en.ts"),
-            include_str!("../i18n/nearlane_ru.ts"),
-        ] {
-            assert!(catalog(xml).len() >= 250);
-        }
         assert_eq!(language_for_locale("ru_RU.UTF-8"), Language::Ru);
         assert_eq!(language_for_locale("de-DE"), Language::En);
+    }
+
+    #[test]
+    fn english_and_russian_catalogs_cover_the_same_sources() {
+        let english = catalog(include_str!("../i18n/nearlane_en.ts"));
+        let russian = catalog(include_str!("../i18n/nearlane_ru.ts"));
+        assert_eq!(russian.len(), english.len());
+        for (key, translation) in &english {
+            assert_eq!(translation, &key.1);
+            assert!(russian.contains_key(key), "Missing Russian entry {key:?}");
+        }
     }
 }

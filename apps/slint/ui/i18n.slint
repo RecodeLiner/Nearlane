@@ -1,4 +1,4 @@
-// Translation uses the same catalogs as Qt; opaque names never reach lookup.
+// Translate interface messages using the application catalogs.
 export global I18n {
     in-out property <string> language;
     pure callback lookup(string, string) -> string;

@@ -54,6 +54,7 @@ pub fn send_file<S: Read + Write>(
     cancellation: &Cancellation,
 ) -> Result<FileSummary, TransferError> {
     validate_offer(offer, max_file_bytes)?;
+    channel.enable_file_frames();
     let mut offset = 0;
     let mut index = 0;
     let mut digest = Sha256::new();
@@ -127,6 +128,7 @@ pub fn receive_file<S: Read + Write>(
     cancellation: &Cancellation,
 ) -> Result<ReceivedFile, TransferError> {
     let mut sink = FileSink::new(offer, directory, max_file_bytes)?;
+    channel.enable_file_frames();
     loop {
         if cancellation.is_cancelled() {
             let _ = channel.send(&wire::encode_cancel(offer.payload_id, sink.offset)?);
@@ -208,7 +210,7 @@ impl FileSink {
             || chunk.kind != PayloadKind::File
             || chunk.total_size != self.offer.size
             || chunk.offset != self.offset
-            || chunk.body.len() > MAX_CHUNK
+            || chunk.body.len() > nearlane_protocol::MAX_FRAME_BYTES
             || chunk
                 .file_name
                 .as_ref()

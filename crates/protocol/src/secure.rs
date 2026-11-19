@@ -20,7 +20,7 @@ use crate::{read_frame_bounded, write_frame};
 
 const MAX_HANDSHAKE: usize = 64 * 1024;
 const MAX_CIPHERTEXT: usize = 192 * 1024;
-/// Maximum decrypted Nearby frame accepted by this adapter.
+/// Maximum decrypted Nearby frame before file transfer is explicitly enabled.
 pub const MAX_PLAINTEXT: usize = 128 * 1024;
 
 /// Safe connection-prelude checkpoints; no peer data or cryptographic material.
@@ -103,6 +103,7 @@ pub struct SecureChannel<S> {
     authentication: Zeroizing<Vec<u8>>,
     poisoned: bool,
     remote_safe_version: i32,
+    file_frames: bool,
 }
 
 impl<S> fmt::Debug for SecureChannel<S> {
@@ -230,6 +231,7 @@ impl<S: Read + Write> SecureChannel<S> {
             authentication,
             poisoned: false,
             remote_safe_version: 0,
+            file_frames: false,
         })
     }
 
@@ -245,13 +247,28 @@ impl<S: Read + Write> SecureChannel<S> {
         bool::from(self.authentication.as_slice().ct_eq(expected))
     }
 
+    /// Permit the larger bounded file-frame budget only after the caller has
+    /// verified the peer and accepted the file. This does not establish trust,
+    /// authorize a file, or change control BYTES payload limits.
+    pub fn enable_file_frames(&mut self) {
+        self.file_frames = true;
+    }
+
+    fn plaintext_limit(&self) -> usize {
+        if self.file_frames {
+            crate::MAX_FRAME_BYTES
+        } else {
+            MAX_PLAINTEXT
+        }
+    }
+
     /// Encrypt one Nearby frame. Authentication control frames precede trust;
     /// file introductions/content require the relevant trust and consent gates.
     pub fn send(&mut self, plaintext: &[u8]) -> Result<(), ChannelError> {
         if self.poisoned {
             return Err(ChannelError::Poisoned);
         }
-        if plaintext.is_empty() || plaintext.len() > MAX_PLAINTEXT {
+        if plaintext.is_empty() || plaintext.len() > self.plaintext_limit() {
             return Err(ChannelError::Size);
         }
         if self.context.encode_seq_num() == i32::MAX {
@@ -277,12 +294,17 @@ impl<S: Read + Write> SecureChannel<S> {
             return Err(ChannelError::Poisoned);
         }
         let result = (|| {
-            let ciphertext = read_frame_bounded(&mut self.stream, MAX_CIPHERTEXT)?;
+            let ciphertext_limit = if self.file_frames {
+                crate::MAX_FRAME_BYTES
+            } else {
+                MAX_CIPHERTEXT
+            };
+            let ciphertext = read_frame_bounded(&mut self.stream, ciphertext_limit)?;
             let plaintext = self
                 .context
                 .decode_message_from_peer::<RustCrypto>(&ciphertext, None::<&[u8]>)
                 .map_err(|_| ChannelError::Authentication)?;
-            if plaintext.is_empty() || plaintext.len() > MAX_PLAINTEXT {
+            if plaintext.is_empty() || plaintext.len() > self.plaintext_limit() {
                 return Err(ChannelError::Size);
             }
             Ok(plaintext)
@@ -382,6 +404,28 @@ mod tests {
         server.send(b"response frame").unwrap();
         assert_eq!(client.receive().unwrap(), b"response frame");
         assert!(!format!("{client:?}").contains("authentication"));
+    }
+
+    #[test]
+    fn file_frame_budget_is_explicit_and_default_receive_budget_stays_small() {
+        for enabled in [false, true] {
+            let (mut client, mut server) = pair();
+            client.enable_file_frames();
+            let data = vec![0x5a; crate::MAX_FRAME_BYTES - 1024];
+            let expected = data.clone();
+            let sender = std::thread::spawn(move || client.send(&data));
+            if enabled {
+                server.enable_file_frames();
+                assert_eq!(server.receive().unwrap(), expected);
+                sender.join().unwrap().unwrap();
+            } else {
+                assert!(matches!(server.receive(), Err(ChannelError::Io(error))
+                    if error.kind() == io::ErrorKind::InvalidData));
+                assert!(matches!(server.receive(), Err(ChannelError::Poisoned)));
+                drop(server);
+                let _ = sender.join().unwrap();
+            }
+        }
     }
 
     #[test]

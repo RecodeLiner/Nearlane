@@ -101,7 +101,7 @@ impl OwnDevice {
         self.discovered.elapsed() <= Duration::from_secs(120)
     }
     /// Certificate-bound discovery destination for the trusted transfer worker.
-    /// Never expose the address to QML or follow later peer-supplied redirects.
+    /// Keep the address out of UI state and ignore later peer-supplied redirects.
     pub fn socket_address(&self) -> std::net::SocketAddrV4 {
         std::net::SocketAddrV4::new(self.address, self.port)
     }
@@ -110,7 +110,7 @@ impl OwnDevice {
         &self.name
     }
     /// Trusted certificate matched to the advertisement, for a future live
-    /// signature verifier. It is never exposed to QML or serialized.
+    /// signature verifier. Keep it out of UI state and serialized data.
     pub fn certificate(&self) -> &RemoteCertificate {
         &self.certificate
     }

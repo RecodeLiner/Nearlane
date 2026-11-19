@@ -134,7 +134,14 @@ impl Session {
         }
     }
     pub(crate) fn begin_file_transfer(&mut self) {
+        // Callers reach this phase after mutual private verification and
+        // receiver acceptance. Consent/authentication retain the small budget.
+        self.channel.enable_file_frames();
         self.clock = Clock::data(Instant::now());
+    }
+    #[cfg(test)]
+    pub(crate) fn send_test_chunk(&mut self, chunk: &PayloadChunk) -> Result<(), TransferError> {
+        self.send_frame(&wire::encode_data(chunk)?)
     }
     pub(crate) fn file_progress(&mut self) {
         self.clock.progress(Instant::now());
@@ -190,7 +197,7 @@ impl Session {
     }
     pub(crate) fn send_bytes(&mut self, bytes: Vec<u8>) -> Result<(), TransferError> {
         self.check()?;
-        if bytes.is_empty() || bytes.len() > MAX_CHUNK {
+        if bytes.is_empty() || bytes.len() > wire::MAX_CONTROL_BYTES {
             return Err(TransferError::Sequence);
         }
         let id = self.reserve_id()?;
@@ -347,7 +354,7 @@ impl Session {
         }
     }
     fn assemble(&mut self, chunk: PayloadChunk) -> Result<Option<Event>, TransferError> {
-        if chunk.total_size > MAX_CHUNK as u64
+        if chunk.total_size > wire::MAX_CONTROL_BYTES as u64
             || chunk.file_name.is_some()
             || chunk.parent_folder.is_some()
             || self.received.contains(&chunk.id)
@@ -355,7 +362,7 @@ impl Session {
             if std::env::var_os("NEARLANE_DIAGNOSTICS").is_some() {
                 eprintln!(
                     "receiver/transport: invalid control assembly size_limit={} file_metadata={} reused_id={} last={} body_bytes={}",
-                    chunk.total_size > MAX_CHUNK as u64,
+                    chunk.total_size > wire::MAX_CONTROL_BYTES as u64,
                     chunk.file_name.is_some() || chunk.parent_folder.is_some(),
                     self.received.contains(&chunk.id),
                     chunk.last,

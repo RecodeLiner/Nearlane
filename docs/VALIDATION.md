@@ -1,5 +1,9 @@
 # Validation baseline - 2026-11-16
 
+This file records checks against the revisions and toolkits used on each date.
+Current build commands are in the [README](../README.md). The current UI
+checks use the [Slint headless runner](LOCALIZATION.md#verification).
+
 Local environment: NixOS x86_64, locked nixpkgs
 `d4f25a3e562008648d45bcf2d70bcc7422cad84e`, Rust 1.99.1, Qt 6.12.0.
 Rust 1.85 is the declared minimum; it has not been tested locally.
@@ -233,4 +237,10 @@ rollback, source-file removal, explicit local login cancellation, hidden policy
 without credentials, and stale decisions. Platform tests cover legacy Linux
 settings migration and the bounded Bluetooth Apple-name fallback. The new Rust
 radio adapter and native Slint tray still require real OS/device verification.
-Qt remains the default package while that validation is pending.
+Qt was the default package at the time of these checks.
+
+## Slint reception on NixOS - 2026-11-18
+
+An Android phone sent a 91,458-byte image to the Slint desktop app in own-device
+mode. The saved image opened on the PC after the receiver accepted the phone's
+larger file-data frame. See the [incoming transfer observations](research/native-incoming.md).

@@ -15,8 +15,8 @@ The session requires the exact sharing scope and expires locally. Cancellation
 discards late results. The worker may finish an already-sent HTTPS request within
 its 20-second timeout, but cannot restore the cancelled session.
 
-QML sees status and capability flags, not configuration, authorization URLs,
-codes or tokens. Access tokens stay in memory. Refresh tokens are persisted only
+The desktop view receives status and capability flags. The account worker retains
+configuration, authorization URLs and codes. Access tokens stay in memory. Refresh tokens are persisted only
 in the OS credential store, scoped to this application and a hash of the local
 OAuth client ID. There is no plaintext-file fallback. Closing the app preserves
 offline access; Sign out queues deletion of this app's vault entry and does not
@@ -95,7 +95,7 @@ for 20 seconds, with limits of 1024 events and 32 candidate endpoints. It does n
 make TCP connections, register a service or open a file receiver. The initial
 adapter retains private/link-local IPv4 candidates only. Sharing advertisement
 metadata must pass current own-device certificate commitment and AES-GCM checks;
-publicly advertised names are never used. Candidate names use plain-text QML
+publicly advertised names are never used. Candidate names use plain-text
 rendering. Matching metadata is not live identity proof: an old advertisement
 can be replayed, and connection destinations still require paired-key validation.
 Stop, sign-out, session expiry and retry clear candidates and cancel discovery;
@@ -171,7 +171,12 @@ fragments, payload IDs and counts are bounded, keep-alives are answered during u
 and an absolute socket deadline bounds partial trickle frames. The frame deadline is
 reset only at a complete encrypted-frame boundary. During file streaming, validated file
 progress renews a separate 90-second idle budget, with a finite 24-hour total budget;
-keep-alives cannot renew it. Files use bounded chunks regardless of total size. A
+keep-alives cannot renew it. The sender reads 64 KiB at a time. The receiver
+accepts encrypted file frames up to 1 MiB after private verification and consent.
+This covers the entire frame, including encryption and protobuf overhead. The
+four-byte length prefix is separate. The receiver checks the length before
+allocation and applies smaller budgets to handshake, pre-consent and control
+traffic. A
 per-minute control budget replaces a lifetime frame count, so file data above 512 MiB
 does not exhaust a control limit. Storage write failures stop reception and remove
 incomplete staging. Only a matching file ACK after EOF confirms delivery. Legacy
@@ -232,8 +237,8 @@ The CLI importer publishes exclusively and never replaces an existing file.
 ## Frontend boundary
 
 The application controller owns the service, OS browser dispatch, preferences,
-Bluetooth lifetime and scoped notification actions on a dedicated thread. Qt and
-Slint adapters render immutable snapshots and enqueue bounded typed commands.
+Bluetooth lifetime and scoped notification actions on a dedicated thread. The
+Slint adapter renders immutable snapshots and enqueues bounded typed commands.
 Snapshots exclude authorization URLs, grants, keys, certificate IDs and peer
 addresses. Incoming decisions carry the displayed request ID; stale decisions
 remain subject to the service gate. Send selections carry a process-local list

@@ -27,6 +27,7 @@ export component MainWindow inherits MaterialWindow {
         { text: I18n.tr("Receive"), icon: @image-url("icons/receive.svg") },
         { text: I18n.tr("Settings"), icon: @image-url("icons/settings.svg") },
     ];
+    forward-focus: shortcuts;
     changed page => { Actions.foreground(root.page == 0); }
     public function show-about() { about.show(); }
     about := Dialog {
@@ -40,42 +41,57 @@ export component MainWindow inherits MaterialWindow {
         // directly accessible from the system tray's top-level About menu.
         AboutSlint { min-width: 280px; }
     }
-    VerticalLayout {
-        x: 0;
-        y: 0;
-        width: parent.width;
-        height: parent.height;
-        spacing: 0;
-        HorizontalLayout {
+    shortcuts := FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        KeyBinding { keys: @keys(Alt + "1"); activated => { root.page = 0; } }
+        KeyBinding { keys: @keys(Alt + "2"); activated => { root.page = 1; } }
+        KeyBinding { keys: @keys(Alt + "3"); activated => { root.page = 2; } }
+        KeyBinding {
+            keys: @keys(Control + O);
+            enabled: root.state.account-authorized && !root.state.transfer-busy;
+            activated => {
+                root.page = 0;
+                Actions.choose-file();
+            }
+        }
+        VerticalLayout {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: parent.height;
             spacing: 0;
-            if root.wide : NavigationRail {
-                width: 104px;
-                alignment: start;
+            HorizontalLayout {
+                spacing: 0;
+                if root.wide : NavigationRail {
+                    width: 104px;
+                    alignment: start;
+                    items: root.destinations;
+                    current_index <=> root.page;
+                }
+                VerticalLayout {
+                    spacing: 0;
+                    Rectangle {
+                        background: MaterialPalette.surface;
+                        height: 88px;
+                        HorizontalLayout {
+                            padding: 24px;
+                            Heading { text: root.destinations[root.page].text; font-size: 28px; }
+                            Body { text: "Nearlane"; horizontal-alignment: right; }
+                        }
+                    }
+                    // Keep each page instance alive across navigation and resizing.
+                    Rectangle {
+                        SendPage { visible: root.page == 0; state: root.state; settings => { root.page=2; } }
+                        ReceivePage { visible: root.page == 1; state: root.state; settings => { root.page=2; } }
+                        SettingsPage { visible: root.page == 2; state: root.state; }
+                    }
+                }
+            }
+            if !root.wide : NavigationBar {
                 items: root.destinations;
                 current_index <=> root.page;
             }
-            VerticalLayout {
-                spacing: 0;
-                Rectangle {
-                    background: MaterialPalette.surface;
-                    height: 88px;
-                    HorizontalLayout {
-                        padding: 24px;
-                        Heading { text: root.destinations[root.page].text; font-size: 28px; }
-                        Body { text: "Nearlane"; horizontal-alignment: right; }
-                    }
-                }
-                // Keep each page instance alive across navigation and resizing.
-                Rectangle {
-                    SendPage { visible: root.page == 0; state: root.state; settings => { root.page=2; } }
-                    ReceivePage { visible: root.page == 1; state: root.state; settings => { root.page=2; } }
-                    SettingsPage { visible: root.page == 2; state: root.state; }
-                }
-            }
-        }
-        if !root.wide : NavigationBar {
-            items: root.destinations;
-            current_index <=> root.page;
         }
     }
 }

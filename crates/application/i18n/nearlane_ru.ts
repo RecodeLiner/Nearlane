@@ -228,6 +228,10 @@
       <translation>Все байты отправлены, но подтверждение от телефона не получено. Проверьте телефон перед повторной отправкой.</translation>
     </message>
     <message>
+      <source>File received</source>
+      <translation>Файл получен</translation>
+    </message>
+    <message>
       <source>File saved: %1 bytes. Preparing to receive another file.</source>
       <translation>Файл сохранён: %1 байт. Готовимся принять следующий файл.</translation>
     </message>
@@ -496,6 +500,10 @@
       <translation>Не удалось безопасно установить соединение Nearby.</translation>
     </message>
     <message>
+      <source>The file was saved to the selected folder.</source>
+      <translation>Файл сохранён в выбранную папку.</translation>
+    </message>
+    <message>
       <source>The in-memory session expired. Sign in again.</source>
       <translation>Срок действия сеанса в памяти истёк. Войдите снова.</translation>
     </message>
@@ -615,10 +623,6 @@
   <context>
     <name>Ui</name>
     <message>
-      <source>%1 · found via Bluetooth, waiting for Wi-Fi</source>
-      <translation>%1 · найдено по Bluetooth, ожидаем Wi-Fi</translation>
-    </message>
-    <message>
       <source>About Nearlane</source>
       <translation>О Nearlane</translation>
     </message>
@@ -631,28 +635,12 @@
       <translation>Принять файл?</translation>
     </message>
     <message>
-      <source>Account</source>
-      <translation>Аккаунт</translation>
-    </message>
-    <message>
-      <source>Account connected</source>
-      <translation>Аккаунт подключён</translation>
-    </message>
-    <message>
-      <source>Account not connected</source>
-      <translation>Аккаунт не подключён</translation>
-    </message>
-    <message>
       <source>Ask before receiving</source>
       <translation>Спрашивать перед получением</translation>
     </message>
     <message>
       <source>Available to your devices</source>
       <translation>Доступен вашим устройствам</translation>
-    </message>
-    <message>
-      <source>Cancel</source>
-      <translation>Отменить</translation>
     </message>
     <message>
       <source>Cancel sign-in</source>
@@ -669,10 +657,6 @@
     <message>
       <source>Check contacts support</source>
       <translation>Проверить поддержку контактов</translation>
-    </message>
-    <message>
-      <source>Choose a file</source>
-      <translation>Выберите файл</translation>
     </message>
     <message>
       <source>Choose a file and the device to send it to.</source>
@@ -695,36 +679,8 @@
       <translation>Закрыть</translation>
     </message>
     <message>
-      <source>Configuration file: %1</source>
-      <translation>Файл конфигурации: %1</translation>
-    </message>
-    <message>
-      <source>Connect both devices to the same network. In Quick Share on your phone, set visibility to “Your devices”.</source>
-      <translation>Подключите устройства к одной сети. В Quick Share на телефоне выберите видимость «Ваши устройства».</translation>
-    </message>
-    <message>
       <source>Connect the same Google account you use on your phone.</source>
       <translation>Подключите тот же Google-аккаунт, что и на телефоне.</translation>
-    </message>
-    <message>
-      <source>Connect your Google account</source>
-      <translation>Подключите Google-аккаунт</translation>
-    </message>
-    <message>
-      <source>Connect your account in Settings</source>
-      <translation>Подключите аккаунт в настройках</translation>
-    </message>
-    <message>
-      <source>Could not open the receiving port. Close another Quick Share receiver and retry.</source>
-      <translation>Не удалось открыть порт приёма. Закройте другой клиент Quick Share и повторите попытку.</translation>
-    </message>
-    <message>
-      <source>Could not restore sign-in. Retry saved sign-in.</source>
-      <translation>Не удалось восстановить вход. Повторите попытку.</translation>
-    </message>
-    <message>
-      <source>Could not save settings. Check access to the configuration folder.</source>
-      <translation>Не удалось сохранить настройки. Проверьте доступ к папке конфигурации.</translation>
     </message>
     <message>
       <source>Decline</source>
@@ -733,14 +689,6 @@
     <message>
       <source>Discover devices over Wi-Fi and Bluetooth. Transfer files over Wi-Fi.</source>
       <translation>Обнаруживать устройства по Wi-Fi и Bluetooth. Передавать файлы по Wi-Fi.</translation>
-    </message>
-    <message>
-      <source>Download folder</source>
-      <translation>Папка для файлов</translation>
-    </message>
-    <message>
-      <source>Each file will need your confirmation. You can accept or decline directly in the notification.</source>
-      <translation>Для каждого файла появится запрос. Можно принять или отклонить передачу прямо в уведомлении.</translation>
     </message>
     <message>
       <source>Enable receiving</source>
@@ -759,14 +707,6 @@
       <translation>Экспериментальная версия: один файл до 64 ГиБ, передача по Wi-Fi в одной сети. Bluetooth помогает обнаружению; режим контактов пока недоступен. Для проверки используйте тестовый аккаунт.</translation>
     </message>
     <message>
-      <source>File received</source>
-      <translation>Файл получен</translation>
-    </message>
-    <message>
-      <source>Files from verified devices on your account are accepted automatically. A notification will appear once a file is saved.</source>
-      <translation>Файлы от проверенных устройств вашего аккаунта принимаются автоматически. После сохранения появится уведомление.</translation>
-    </message>
-    <message>
       <source>Find devices in the background</source>
       <translation>Искать устройства в фоне</translation>
     </message>
@@ -783,56 +723,20 @@
       <translation>Google-аккаунт</translation>
     </message>
     <message>
-      <source>Incoming file</source>
-      <translation>Входящий файл</translation>
-    </message>
-    <message>
-      <source>Interface language</source>
-      <translation>Язык интерфейса</translation>
-    </message>
-    <message>
-      <source>JSON files (*.json)</source>
-      <translation>Файлы JSON (*.json)</translation>
-    </message>
-    <message>
       <source>Language</source>
       <translation>Язык</translation>
-    </message>
-    <message>
-      <source>Looking for your devices…</source>
-      <translation>Ищем ваши устройства…</translation>
     </message>
     <message>
       <source>Nearby devices</source>
       <translation>Устройства рядом</translation>
     </message>
     <message>
-      <source>Nearlane · Receiving from your devices</source>
-      <translation>Nearlane · Приём от своих устройств</translation>
-    </message>
-    <message>
-      <source>Nearlane · Running in the background</source>
-      <translation>Nearlane · Работает в фоне</translation>
-    </message>
-    <message>
-      <source>No devices nearby yet</source>
-      <translation>Пока нет устройств рядом</translation>
-    </message>
-    <message>
       <source>On your phone, choose a file → Quick Share → Nearlane. You can minimize this window; the app will keep running in the system tray.</source>
       <translation>На телефоне выберите файл → Quick Share → Nearlane. Окно можно свернуть: приложение продолжит работать в трее.</translation>
     </message>
     <message>
-      <source>One file up to 64 GiB. Existing files are never overwritten.</source>
-      <translation>Один файл до 64 ГиБ. Существующие файлы не перезаписываются.</translation>
-    </message>
-    <message>
       <source>One file up to 64 GiB. The transfer will be encrypted.</source>
       <translation>Один файл до 64 ГиБ. Передача будет зашифрована.</translation>
-    </message>
-    <message>
-      <source>Only devices on your account appear here. Private keys are verified when connecting. Files are transferred over Wi-Fi.</source>
-      <translation>В списке - только устройства вашего аккаунта. Приватные ключи проверяются при подключении. Файлы передаются по Wi-Fi.</translation>
     </message>
     <message>
       <source>Open Nearlane</source>
@@ -843,28 +747,12 @@
       <translation>Подготовка приёма</translation>
     </message>
     <message>
-      <source>Preparing your devices…</source>
-      <translation>Подготавливаем ваши устройства…</translation>
-    </message>
-    <message>
-      <source>Quick Share permission granted.</source>
-      <translation>Разрешение Quick Share получено.</translation>
-    </message>
-    <message>
       <source>Quit</source>
       <translation>Выйти из приложения</translation>
     </message>
     <message>
-      <source>Ready to receive from your own devices.</source>
-      <translation>Готов к приёму от ваших устройств.</translation>
-    </message>
-    <message>
       <source>Receive</source>
       <translation>Получить</translation>
-    </message>
-    <message>
-      <source>Receive files</source>
-      <translation>Получить файлы</translation>
     </message>
     <message>
       <source>Receive from your devices</source>
@@ -875,32 +763,12 @@
       <translation>Приём и обнаружение</translation>
     </message>
     <message>
-      <source>Receiving from your devices is enabled</source>
-      <translation>Приём от своих устройств включён</translation>
-    </message>
-    <message>
       <source>Receiving is off</source>
       <translation>Приём выключен</translation>
     </message>
     <message>
-      <source>Receiving on this computer is off</source>
-      <translation>Приём на этом компьютере выключен</translation>
-    </message>
-    <message>
-      <source>Receiving settings</source>
-      <translation>Настроить приём</translation>
-    </message>
-    <message>
-      <source>Receiving will start once private keys are ready. If this takes too long, check the status in Settings.</source>
-      <translation>Приём начнётся после подготовки приватных ключей. Если ожидание затянулось, проверьте состояние в настройках.</translation>
-    </message>
-    <message>
       <source>Refresh</source>
       <translation>Обновить</translation>
-    </message>
-    <message>
-      <source>Restoring sign-in…</source>
-      <translation>Восстанавливаем вход…</translation>
     </message>
     <message>
       <source>Retry device setup</source>
@@ -915,24 +783,12 @@
       <translation>Сохранять файлы в</translation>
     </message>
     <message>
-      <source>Searching for devices</source>
-      <translation>Поиск устройств</translation>
-    </message>
-    <message>
-      <source>Select a device to send to</source>
-      <translation>Выбрать устройство для отправки</translation>
-    </message>
-    <message>
       <source>Select a local OAuth JSON file. Its application parameters will be saved privately for future launches.</source>
       <translation>Выберите локальный JSON-файл OAuth. Параметры приложения будут сохранены с закрытым доступом для следующих запусков.</translation>
     </message>
     <message>
       <source>Send</source>
       <translation>Отправить</translation>
-    </message>
-    <message>
-      <source>Send a file</source>
-      <translation>Отправить файл</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -955,32 +811,12 @@
       <translation>Для приёма нужен вход</translation>
     </message>
     <message>
-      <source>Sign in to the same account you use on your phone.</source>
-      <translation>Войдите в тот же аккаунт, который используется на телефоне.</translation>
-    </message>
-    <message>
       <source>Sign in with Google</source>
       <translation>Войти через Google</translation>
     </message>
     <message>
       <source>Sign out</source>
       <translation>Выйти из аккаунта</translation>
-    </message>
-    <message>
-      <source>Sign-in configuration</source>
-      <translation>Конфигурация входа</translation>
-    </message>
-    <message>
-      <source>Sign-in status, private keys and device certificates</source>
-      <translation>Состояние входа, приватных ключей и сертификаты устройств</translation>
-    </message>
-    <message>
-      <source>Signing in</source>
-      <translation>Вход в аккаунт</translation>
-    </message>
-    <message>
-      <source>Signing in…</source>
-      <translation>Выполняется вход…</translation>
     </message>
     <message>
       <source>Stop receiving</source>
@@ -995,32 +831,8 @@
       <translation>Системный</translation>
     </message>
     <message>
-      <source>The file was saved to the selected folder.</source>
-      <translation>Файл сохранён в выбранную папку.</translation>
-    </message>
-    <message>
-      <source>The folder and receiving preferences are remembered between sessions.</source>
-      <translation>Папка и параметры приёма сохраняются между запусками.</translation>
-    </message>
-    <message>
       <source>The language changes immediately and is remembered for next time.</source>
       <translation>Язык меняется сразу и сохраняется для следующих запусков.</translation>
-    </message>
-    <message>
-      <source>This computer usually has three certificates for consecutive periods. Other device names appear once discovered nearby. Old registrations may remain until their certificates expire.</source>
-      <translation>У этого компьютера обычно три сертификата для последовательных периодов. Названия других устройств появляются после обнаружения рядом. Старые регистрации могут оставаться до истечения срока.</translation>
-    </message>
-    <message>
-      <source>To change the folder, first turn off receiving above.</source>
-      <translation>Чтобы изменить папку, сначала выключите приём выше.</translation>
-    </message>
-    <message>
-      <source>Transfer confirmation</source>
-      <translation>Подтверждение передачи</translation>
-    </message>
-    <message>
-      <source>Transferring file</source>
-      <translation>Передача файла</translation>
     </message>
     <message>
       <source>Use the same account on your phone and computer. Nearlane remembers your sign-in in the system credential store.</source>
@@ -1033,14 +845,6 @@
     <message>
       <source>What would you like to send?</source>
       <translation>Что отправим?</translation>
-    </message>
-    <message>
-      <source>Where to save received files</source>
-      <translation>Куда сохранять полученные файлы</translation>
-    </message>
-    <message>
-      <source>Your device wants to send a file. Open Nearlane to accept or decline.</source>
-      <translation>Ваше устройство предлагает файл. Откройте Nearlane, чтобы принять или отклонить его.</translation>
     </message>
   </context>
 </TS>

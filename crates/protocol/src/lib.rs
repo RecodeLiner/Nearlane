@@ -10,7 +10,8 @@ pub mod wire;
 
 use std::io::{self, Read, Write};
 
-/// Conservative initial bound before allocating space for untrusted frames.
+/// Google Nearby's default channel read limit. The four-byte length prefix
+/// counts the entire wire frame, including encryption and protobuf overhead.
 pub const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
 /// Read one frame, refusing empty or oversized data before allocation.
@@ -65,6 +66,15 @@ mod tests {
         assert_eq!(read_frame(&mut reader).unwrap(), b"first");
         assert_eq!(read_frame(&mut reader).unwrap(), b"second");
         assert!(reader.is_empty());
+    }
+    #[test]
+    fn one_mib_fits_exactly_after_the_length_prefix() {
+        let frame = vec![0xab; 1024 * 1024];
+        let mut wire = Vec::new();
+        write_frame(&mut wire, &frame).unwrap();
+        assert_eq!(wire.len(), frame.len() + 4);
+        assert_eq!(read_frame(&mut wire.as_slice()).unwrap(), frame);
+        assert!(write_frame(&mut Vec::new(), &vec![0; frame.len() + 1]).is_err());
     }
     #[test]
     fn rejects_length_bombs_without_reading_payload() {

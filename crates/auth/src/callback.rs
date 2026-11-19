@@ -52,7 +52,7 @@ impl fmt::Debug for AuthorizationCode {
 
 /// One browser authorization attempt with independent CSRF state and PKCE.
 ///
-/// Keep this object in the trusted service, not the QML UI. Consuming it when
+/// Keep this object inside the trusted service. Consuming it when
 /// accepting a callback prevents accidental reuse of the verifier.
 pub struct AuthorizationAttempt {
     redirect: Url,

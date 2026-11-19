@@ -1,7 +1,7 @@
 # Nearlane development conventions
 
-- Use a Cargo workspace. Keep Qt in apps/desktop and Slint in apps/slint.
-  Frontends render snapshots and dispatch typed commands only. Shared application
+- Use a Cargo workspace. Keep the Slint desktop interface in apps/slint.
+  It renders snapshots and dispatches typed commands only. Shared application
   orchestration belongs in crates/application, OS integration in crates/platform,
   and protocol/account policy in the existing service and domain crates.
   No GUI toolkit dependency may enter those shared crates.

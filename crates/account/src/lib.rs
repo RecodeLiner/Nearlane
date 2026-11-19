@@ -154,10 +154,10 @@ impl AccountStatus {
     }
 }
 
-/// An authorization URL exposed only to the system-browser launcher, never QML.
+/// An authorization URL for the system-browser launcher.
 pub struct BrowserAuthorization(url::Url);
 impl BrowserAuthorization {
-    /// Hand directly to the OS browser opener; do not log it or put it in QML.
+    /// Pass directly to the browser opener and keep out of logs and UI state.
     pub fn expose_url(&self) -> &str {
         self.0.as_str()
     }
@@ -395,7 +395,7 @@ impl Account {
     }
 
     /// In-memory trusted API cache for the owned-device discovery worker only.
-    /// Never serialize these credentials or expose them to QML/logs.
+    /// Keep credentials out of serialized data, UI state and logs.
     pub fn own_device_certificates(&self) -> Vec<Arc<nearlane_certificates::RemoteCertificate>> {
         if self.status == AccountStatus::Authorized
             && self

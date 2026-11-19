@@ -1,4 +1,4 @@
-# Licensing and distribution notes - 2026-11-14
+# Licensing and distribution notes
 
 This is a practical provenance review, not a legal opinion or a promise against
 DMCA notices. Applicable law depends on jurisdiction and how research and
@@ -15,15 +15,13 @@ DMCA notice or that GitHub will never restrict a repository.
 This is a new repository, not a relicensed fork. No implementation code from
 Scotty, rquickshare or Packet has been copied. The auth implementation follows
 public OAuth/PKCE specifications; the CLI and frame limits are original.
-Qt startup/bridge API usage was informed by CXX-Qt's MIT/Apache documentation;
-see NOTICE for acknowledgment.
 
 ## Components considered
 
 | Component | License / treatment |
 | --- | --- |
-| CXX-Qt 0.10 | MIT OR Apache-2.0; preserve its licenses and notices in distributions |
-| Qt Core, Gui, QML, Quick, Quick Controls | Open-source LGPL/GPL alternatives vary by module; use the LGPLv3 option for the selected modules, dynamic linking and redistribution compliance |
+| Slint 1.19.0 | Nearlane uses the Royalty-free Desktop, Mobile, and Web Applications License 2.0. The About Nearlane dialog includes AboutSlint and opens from the tray and settings. The package includes the license text. |
+| Slint Material Components 1.1.0 | MIT. The vendored component sources include their original license and archive provenance in third_party/slint-material. |
 | Google Better Together Core | Apache-2.0; selected UKEY2/crypto Rust components incorporated in third_party/beto, pinned to 479289ef072b0880c0347d36937265e44f00f4ee. Original sources/notices are unchanged; packaging manifests are adapted and documented |
 | Google Nearby schemas | Apache-2.0; original Rust adapters follow published field numbers from revision 770a030be8fbebbcda5bf71ba718c35f5350c27c; provenance is recorded in NOTICE and source comments |
 | Google Nearby certificate test vectors | Selected synthetic values adapted from published sharing/certificates/test_util.cc at the same revision, Apache-2.0; original attribution retained in test_vectors.rs and NOTICE |
@@ -32,11 +30,9 @@ see NOTICE for acknowledgment.
 | Google Quick Share EXE/MSI/resources | Proprietary; downloaded only into ignored work/ for local examination; do not redistribute or embed |
 | Local desktop OAuth configuration | Local-only import into private runtime configuration is explicitly authorized; never compiled or distributed. Application-identity/API authorization is separate from the license of Nearlane's original code |
 
-MIT/Apache licensing the application does not remove LGPL obligations for Qt.
-Before publishing binaries, inventory the exact Qt modules/plugins and transitive
-dependencies, include license texts and attributions, provide required source
-access, and permit replacement/relinking of LGPL components as applicable. Do not
-assume all Qt add-on modules are LGPL. Avoid static Qt linking for this prototype.
+The Nix package declares Nearlane's MIT/Apache licenses and the selected Slint
+framework license. See the [dependency inventory](CARGO-LICENSES.md) and the
+[vendored component provenance](../third_party/slint-material/PROVENANCE.md).
 
 ## Local OAuth compatibility experiment
 
@@ -73,9 +69,8 @@ Primary policy: https://developers.google.com/identity/protocols/oauth2/policies
 ## Primary references
 
 - https://github.com/google/nearby/blob/main/LICENSE
-- https://github.com/KDAB/cxx-qt (MIT/Apache license statement)
-- https://doc.qt.io/qt-6/qtquickcontrols-index.html#license-and-attributions
-- https://www.qt.io/development/open-source-lgpl-obligations
+- [Slint 1.19.0 Royalty-free 2.0 license](../third_party/slint-material/LICENSE-Slint-Royalty-free-2.0.md)
+- [Slint Material Components license](../third_party/slint-material/LICENSE.md)
 - https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy
 - https://www.law.cornell.edu/uscode/text/17/1201 (especially subsection f)
 - https://policies.google.com/terms

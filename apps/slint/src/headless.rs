@@ -107,9 +107,6 @@ pub(crate) fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         flush()?;
         apply();
         assert!(window.get_state().hidden);
-        for page in 0..3 {
-            window.set_page(page);
-        }
         println!(
             "PASS: Slint callbacks, live en/ru catalogs, synthetic import/login cancellation, private receiving settings; no account/radio access"
         );
@@ -159,6 +156,9 @@ pub(crate) fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let height = 820;
     surface.set_size(slint::PhysicalSize::new(width, height));
     window.show()?;
+    if smoke {
+        check_shortcuts(&window);
+    }
     if value("--page") == Some("about") {
         window.invoke_show_about();
         std::thread::sleep(Duration::from_millis(70));
@@ -197,4 +197,50 @@ pub(crate) fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
     window.hide()?;
     Ok(())
+}
+
+fn check_shortcuts(window: &MainWindow) {
+    use slint::platform::{Key, WindowEvent};
+
+    let chord = |modifier: Key, key: &str| {
+        for text in [modifier.into(), key.into()] {
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text });
+        }
+        for text in [key.into(), modifier.into()] {
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text });
+        }
+    };
+    // Tab moves focus into a child control before testing window-wide bindings.
+    window.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Tab.into(),
+    });
+    window.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Tab.into(),
+    });
+    for (key, page) in [("3", 2), ("1", 0), ("2", 1)] {
+        chord(Key::Alt, key);
+        assert_eq!(window.get_page(), page);
+    }
+
+    // Trap the file chooser callback so this check never opens a native dialog.
+    let chosen = Rc::new(std::cell::Cell::new(0));
+    let observed = chosen.clone();
+    window
+        .global::<Actions>()
+        .on_choose_file(move || observed.set(observed.get() + 1));
+    let original = window.get_state();
+    let mut state = original.clone();
+    for (authorized, busy, expected) in [(false, false, 0), (true, true, 0), (true, false, 1)] {
+        state.account_authorized = authorized;
+        state.transfer_busy = busy;
+        window.set_state(state.clone());
+        chord(Key::Control, "o");
+        assert_eq!(chosen.get(), expected);
+        assert_eq!(window.get_page(), if expected == 0 { 1 } else { 0 });
+    }
+    window.set_state(original);
 }

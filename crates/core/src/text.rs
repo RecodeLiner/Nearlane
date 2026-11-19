@@ -31,7 +31,7 @@ impl Text {
     pub fn literal(value: impl ToString) -> Self {
         Self::Literal(value.to_string())
     }
-    /// Render using a caller-owned translator; this crate has no locale or Qt.
+    /// Render using the caller's locale and translator.
     pub fn render(&self, translate: &impl Fn(&str) -> String) -> String {
         let Self::Message { source, arguments } = self else {
             let Self::Literal(value) = self else {

@@ -85,7 +85,7 @@ impl LocalCertificate {
 
     /// Serialize the sharing credential uploaded to Google. This includes
     /// discovery secrets (as required by the protocol), not the ECDSA private key.
-    /// Keep the result in trusted transport memory and out of logs/disk/QML.
+    /// Keep the result in trusted transport memory, out of logs, storage and UI state.
     pub fn publication_bytes(&self) -> Result<Zeroizing<Vec<u8>>, CertificateError> {
         let public_key = self
             .signing

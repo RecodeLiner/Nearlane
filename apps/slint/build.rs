@@ -1,4 +1,4 @@
-//! Compile presentation resources, without Qt or platform business logic.
+//! Compile presentation resources for the desktop application.
 fn main() {
     let config = slint_build::CompilerConfiguration::new().with_library_paths(
         std::collections::HashMap::from([(

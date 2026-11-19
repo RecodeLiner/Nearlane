@@ -78,7 +78,7 @@ impl Preferences {
     }
 }
 
-/// Shared, atomic persistence independent of Qt's settings formats.
+/// Persist shared desktop preferences atomically.
 #[derive(Clone, Debug)]
 pub struct PreferenceStore {
     path: PathBuf,

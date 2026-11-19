@@ -2,12 +2,8 @@ Nearlane
 Copyright 2026 Nearlane contributors
 
 Independent interoperability research. Not affiliated with, endorsed by, or
-distributed by Google LLC, Samsung Electronics, KDAB or The Qt Company.
+distributed by Google LLC or Samsung Electronics.
 Quick Share and other third-party names belong to their respective owners.
-
-CXX-Qt's startup and QObject bridge documentation informed the Qt API integration.
-CXX-Qt: Copyright Klaralvdalens Datakonsult AB (KDAB), MIT OR Apache-2.0.
-https://github.com/KDAB/cxx-qt
 
 Selected Better Together Core Rust components (Google LLC, Apache-2.0) are
 included under third_party/beto. Original copyright notices are preserved.

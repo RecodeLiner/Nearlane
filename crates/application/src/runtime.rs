@@ -60,7 +60,15 @@ impl Runtime {
         }
     }
     pub(crate) fn tick(&mut self) {
+        let received_before = self.service.received_count();
         self.service.poll_account();
+        if self.live && self.service.received_count() > received_before {
+            let tr = |s| crate::i18n::translate(self.preferences.language, "Backend", s);
+            nearlane_platform::notifications::file_saved(
+                tr("File received"),
+                tr("The file was saved to the selected folder."),
+            );
+        }
         self.notifications
             .update(&mut self.service, self.live, self.preferences.language);
         self.bluetooth_status = self

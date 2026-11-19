@@ -7,8 +7,10 @@ use std::fmt;
 
 use prost::Message as _;
 
-/// Maximum file/bytes body in one streaming chunk.
+/// Preferred file read size on the sending side of a Wi-Fi LAN connection.
 pub const MAX_CHUNK: usize = 64 * 1024;
+/// Maximum length of a control BYTES payload assembled by this implementation.
+pub const MAX_CONTROL_BYTES: usize = 64 * 1024;
 
 /// Payload families implemented by this initial adapter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -141,7 +143,7 @@ pub fn encode_cancel(id: i64, offset: u64) -> Result<Vec<u8>, WireError> {
 
 /// Decode and validate a bounded payload event before the file layer sees it.
 pub fn decode_payload(bytes: &[u8]) -> Result<PayloadEvent, WireError> {
-    if bytes.len() > crate::secure::MAX_PLAINTEXT {
+    if bytes.len() > crate::MAX_FRAME_BYTES {
         return Err(WireError::Size);
     }
     let frame = NearbyFrame::decode(bytes).map_err(|_| WireError::Invalid)?;
@@ -155,6 +157,11 @@ pub fn decode_payload(bytes: &[u8]) -> Result<PayloadEvent, WireError> {
     let transfer = v1.transfer.ok_or(WireError::Invalid)?;
     let header = transfer.header.ok_or(WireError::Invalid)?;
     let id = header.id.ok_or(WireError::Invalid)?;
+    if !(transfer.packet_type == Some(1) && header.kind == Some(2))
+        && bytes.len() > crate::secure::MAX_PLAINTEXT
+    {
+        return Err(WireError::Size);
+    }
     match transfer.packet_type {
         Some(1) => {
             if transfer.control.is_some() {
@@ -208,7 +215,11 @@ pub fn decode_payload(bytes: &[u8]) -> Result<PayloadEvent, WireError> {
 }
 
 fn validate_chunk(chunk: &PayloadChunk) -> Result<(), WireError> {
-    if chunk.body.len() > MAX_CHUNK || chunk.index > i32::MAX as u32 {
+    let body_limit = match chunk.kind {
+        PayloadKind::Bytes => MAX_CONTROL_BYTES,
+        PayloadKind::File => crate::MAX_FRAME_BYTES,
+    };
+    if chunk.body.len() > body_limit || chunk.index > i32::MAX as u32 {
         return Err(WireError::Size);
     }
     let end = chunk
@@ -232,7 +243,7 @@ fn validate_chunk(chunk: &PayloadChunk) -> Result<(), WireError> {
 
 /// Schema-only payload diagnostics. Contents, filenames and payload IDs are omitted.
 pub fn diagnostic_payload_shape(bytes: &[u8]) -> String {
-    if bytes.len() > crate::secure::MAX_PLAINTEXT {
+    if bytes.len() > crate::MAX_FRAME_BYTES {
         return "oversized payload envelope".into();
     }
     let Ok(f) = NearbyFrame::decode(bytes) else {
@@ -352,7 +363,7 @@ pub fn encode_share(message: &ShareMessage) -> Result<Vec<u8>, WireError> {
 /// Decode the initial one-file sharing subset. Multi-file, text, folders, Wi-Fi
 /// credentials and app packages are explicitly unsupported at this stage.
 pub fn decode_share(bytes: &[u8]) -> Result<ShareMessage, WireError> {
-    if bytes.len() > MAX_CHUNK {
+    if bytes.len() > MAX_CONTROL_BYTES {
         return Err(WireError::Size);
     }
     let frame = ShareFrame::decode(bytes).map_err(|_| WireError::Invalid)?;
@@ -409,7 +420,7 @@ pub fn decode_share(bytes: &[u8]) -> Result<ShareMessage, WireError> {
 /// Bounded schema-only diagnostics. Never includes names, identifiers, payload
 /// bytes, MIME strings or keys; suitable only for opt-in protocol troubleshooting.
 pub fn diagnostic_share_shape(bytes: &[u8]) -> String {
-    if bytes.len() > MAX_CHUNK {
+    if bytes.len() > MAX_CONTROL_BYTES {
         return "sharing frame exceeds bound".into();
     }
     let Ok(f) = ShareFrame::decode(bytes) else {
@@ -468,7 +479,7 @@ fn validate_metadata(meta: &FileMetadata) -> Result<(), WireError> {
 /// Recognize bounded progress messages. Advisory progress never substitutes for
 /// receiver acceptance or a matching file acknowledgement.
 pub fn is_progress(bytes: &[u8]) -> bool {
-    if bytes.len() > MAX_CHUNK {
+    if bytes.len() > MAX_CONTROL_BYTES {
         return false;
     }
     let Ok(frame) = ShareFrame::decode(bytes) else {
@@ -688,6 +699,70 @@ mod tests {
         };
         assert_eq!(decoded.body, b"abc");
         assert_eq!(decoded.total_size, 3);
+    }
+    #[test]
+    fn android_single_image_block_larger_than_our_outgoing_chunk_is_supported() {
+        let body = vec![0x5a; 91_458];
+        // Independent peer-shaped envelope matching the observed Android shape:
+        // one FILE DATA packet, followed later by a separate terminal packet.
+        let packet = envelope(Transfer {
+            packet_type: Some(1),
+            header: Some(Header {
+                id: Some(7),
+                kind: Some(2),
+                total_size: Some(body.len() as i64),
+                file_name: Some("image.jpg".into()),
+                ..Default::default()
+            }),
+            chunk: Some(Chunk {
+                flags: Some(0),
+                offset: Some(0),
+                body: Some(body.clone()),
+                index: Some(0),
+            }),
+            control: None,
+        })
+        .encode_to_vec();
+        let PayloadEvent::Data(decoded) = decode_payload(&packet).unwrap() else {
+            panic!("not data")
+        };
+        assert_eq!(decoded.body, body);
+        assert!(!decoded.last);
+    }
+    #[test]
+    fn larger_file_frames_do_not_raise_control_or_file_chunk_ceilings() {
+        for (kind, length) in [
+            (PayloadKind::Bytes, MAX_CONTROL_BYTES + 1),
+            (PayloadKind::File, crate::MAX_FRAME_BYTES),
+        ] {
+            // Encode the peer frame directly, independently of encode_data's
+            // sender-side validation, and verify receiver-side bounds.
+            let packet = envelope(Transfer {
+                packet_type: Some(1),
+                header: Some(Header {
+                    id: Some(7),
+                    kind: Some(if kind == PayloadKind::File { 2 } else { 1 }),
+                    total_size: Some(length as i64),
+                    ..Default::default()
+                }),
+                chunk: Some(Chunk {
+                    flags: Some(0),
+                    offset: Some(0),
+                    body: Some(vec![0; length]),
+                    index: Some(0),
+                }),
+                control: None,
+            })
+            .encode_to_vec();
+            assert!(matches!(decode_payload(&packet), Err(WireError::Size)));
+        }
+        // Unknown protobuf fields must not make a small BYTES/ACK payload
+        // eligible for the enlarged FILE envelope budget.
+        let mut padded_ack = encode_ack(7);
+        prost::encoding::encode_varint((100 << 3) | 2, &mut padded_ack);
+        prost::encoding::encode_varint(crate::secure::MAX_PLAINTEXT as u64, &mut padded_ack);
+        padded_ack.resize(padded_ack.len() + crate::secure::MAX_PLAINTEXT, 0);
+        assert!(matches!(decode_payload(&padded_ack), Err(WireError::Size)));
     }
     #[test]
     fn terminal_chunk_has_an_index_and_omits_an_empty_body_like_the_reference() {

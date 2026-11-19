@@ -1,4 +1,4 @@
-//! Desktop application controller shared by Qt and Slint. No toolkit types.
+//! Desktop application controller with a toolkit-independent command and snapshot API.
 pub mod i18n;
 mod notifications;
 mod radio;

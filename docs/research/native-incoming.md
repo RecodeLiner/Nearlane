@@ -1,5 +1,28 @@
 # Private incoming Wi-Fi LAN stage - 2026-11-15
 
+## Android image chunk interoperability - 2026-11-18
+
+An authorized phone reported Sent while no image was saved. Sanitized diagnostics
+showed successful mutual private verification, one valid file introduction and
+local acceptance, followed by one FILE DATA block of 91,458 bytes. The receiver's
+wire decoder rejected it as Size because it reused the 64 KiB outgoing chunk
+size as an incoming limit. After separating the receive limit, the same phone
+sent the image again. It appeared in Downloads/Nearlane and opened successfully.
+
+The published Google Nearby implementation uses a 64 KiB transmit buffer and a
+1 MiB maximum for the entire frame following the four-byte length prefix,
+including protobuf and encryption overhead. The receiver checks the prefix
+before reading the body. Both sizes are configurable defaults. Runtime values
+in a specific Windows release have not been measured.
+[Feature flags](https://github.com/google/nearby/blob/770a030be8fbebbcda5bf71ba718c35f5350c27c/connections/implementation/flags/nearby_connections_feature_flags.h#L124-L129)
+and [receiver](https://github.com/google/nearby/blob/770a030be8fbebbcda5bf71ba718c35f5350c27c/connections/implementation/base_endpoint_channel.cc#L107-L136).
+
+Nearlane applies that wire limit to approved file traffic. The handshake and
+control messages keep their smaller budgets. Private-session tests reproduce
+the 91,458-byte block and a multi-block file with a near-limit encrypted frame,
+then verify exact EOF, persisted bytes and SHA-256. A framing test exercises
+the inclusive 1 MiB boundary and rejects a declared length one byte above it.
+
 The original adapters use the same public Google Nearby revision as outgoing:
 770a030be8fbebbcda5bf71ba718c35f5350c27c. Reference facts come from
 connections/implementation/wifi_lan_service_info.cc, pcp.h,
@@ -70,7 +93,7 @@ failure; Nearlane does not stop another application or silently change ports.
 ## Background Bluetooth work
 
 This paragraph records the earlier radio-less baseline. The current portable
-Qt scanner, private BLE hint matching and optional Linux silent-initiation lease
+btleplug scanner, private BLE hint matching and optional Linux silent-initiation lease
 are documented in [bluetooth.md](bluetooth.md). Bluetooth file sockets and full
 BLE/GATT connection handling remain outside this Wi-Fi transfer stage.
 
@@ -84,7 +107,7 @@ bootstrap and screen-off Wi-Fi negotiation remain separate work.
 
 ## Background behavior
 
-The desktop defaults to QStandardPaths::DownloadLocation/Nearlane and creates it
+The desktop defaults to the system Downloads directory with a Nearlane subfolder and creates it
 when receiving starts. Receiving is enabled after login/private setup by default,
 and verified own devices are automatically approved. Persistent settings can
 disable reception or require confirmation for each file; the selected destination
@@ -98,8 +121,8 @@ it refreshes matching endpoints, handles removal and expires stale observations.
 The desktop enables it after login. CLI/service construction remains offline,
 and its own local certificates are filtered from outgoing discovery.
 
-Qt's platform tray has show/hide, receiving/discovery switches, Quit and generic
-saved-file notifications. It uses QApplication/QtWidgets for native fallback
+The Qt frontend used in the original test provided tray show/hide, receiving/discovery
+switches, Quit and generic saved-file notifications. It used QApplication/QtWidgets for native fallback
 and a project-owned icon. Closing hides only when a tray is available. Quit stops
 workers and preserves the saved account grant. No login autostart is installed.
 The new code compiled, passed the 95 root tests and strict Rust clippy checks.

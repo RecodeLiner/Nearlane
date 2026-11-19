@@ -1,4 +1,4 @@
-//! Actionable file notifications. No account grants, paths or file contents.
+//! Desktop file notifications. No account grants, paths or file contents.
 #[cfg(target_os = "linux")]
 mod linux;
 use std::{
@@ -37,6 +37,26 @@ impl fmt::Display for NotificationError {
     }
 }
 impl std::error::Error for NotificationError {}
+
+/// Show a brief completion notice using only trusted, localized generic text.
+/// Delivery is best effort and never delays a subsequent file transfer.
+pub fn file_saved(title: String, body: String) {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::thread::Builder::new()
+            .name("nearlane-file-saved".into())
+            .spawn(move || {
+                if let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    let _ = runtime.block_on(linux::file_saved(&title, &body));
+                }
+            });
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (title, body);
+}
 
 /// Verified offer details for display. Debug omits personal/device/file names.
 pub struct FileNotification {

@@ -166,7 +166,7 @@ impl TokenGrant {
         })
     }
 
-    /// Expose only for an authenticated API request, never to QML or logs.
+    /// Expose only for an authenticated API request. Keep out of UI state and logs.
     pub fn access_token(&self) -> &str {
         &self.access_token
     }

@@ -62,7 +62,8 @@ pub fn request(endpoint: &[u8; 4], info: &[u8], nonce: i32) -> Result<Vec<u8>, W
 }
 /// Validate a bounded plain request; its name and metadata remain untrusted.
 pub fn request_info(bytes: &[u8]) -> Result<Vec<u8>, WireError> {
-    let body = Request::decode(single(bytes, 1, 0)?.as_slice()).map_err(|_| WireError::Invalid)?;
+    let frame = decode_v1(bytes, crate::secure::MAX_PLAINTEXT)?;
+    let body = Request::decode(frame.only_field(1, 0)?).map_err(|_| WireError::Invalid)?;
     if body.endpoint.as_ref().is_none_or(|id| id.len() != 4) {
         return Err(WireError::Invalid);
     }
@@ -106,7 +107,8 @@ fn host_os() -> i32 {
 /// version. File ACK support (version 6) is optional, separate from acceptance
 /// and cryptographic peer verification inside the encrypted stream.
 pub fn require_acceptance(bytes: &[u8]) -> Result<i32, WireError> {
-    let r = Response::decode(single(bytes, 2, 1)?.as_slice()).map_err(|_| WireError::Invalid)?;
+    let frame = decode_v1(bytes, crate::secure::MAX_PLAINTEXT)?;
+    let r = Response::decode(frame.only_field(2, 1)?).map_err(|_| WireError::Invalid)?;
     if r.response != Some(1) && !(r.response.is_none() && r.status == Some(0)) {
         return Err(WireError::Unsupported);
     }
@@ -121,16 +123,17 @@ pub fn require_acceptance(bytes: &[u8]) -> Result<i32, WireError> {
 }
 /// Decode only the supported transport-control families; reject conflicts.
 pub fn control(bytes: &[u8]) -> Result<Control, WireError> {
-    let frame = decode(bytes)?;
-    let v1 = frame.v1.ok_or(WireError::Invalid)?;
+    let v1 = decode_v1(bytes, crate::MAX_FRAME_BYTES)?;
+    if v1.kind != Some(3) && bytes.len() > crate::secure::MAX_PLAINTEXT {
+        return Err(WireError::Size);
+    }
     match v1.kind {
         Some(3) => {
-            single(bytes, 3, 2)?;
+            v1.only_field(3, 2)?;
             Ok(Control::Payload)
         }
         Some(4) => {
-            let u =
-                Upgrade::decode(single(bytes, 4, 3)?.as_slice()).map_err(|_| WireError::Invalid)?;
+            let u = Upgrade::decode(v1.only_field(4, 3)?).map_err(|_| WireError::Invalid)?;
             if u.event != Some(1) {
                 return Err(WireError::Unsupported);
             }
@@ -139,24 +142,21 @@ pub fn control(bytes: &[u8]) -> Result<Control, WireError> {
             })
         }
         Some(5) => {
-            let k =
-                Keep::decode(single(bytes, 5, 4)?.as_slice()).map_err(|_| WireError::Invalid)?;
+            let k = Keep::decode(v1.only_field(5, 4)?).map_err(|_| WireError::Invalid)?;
             Ok(Control::KeepAlive {
                 ack: k.ack.unwrap_or(false),
                 sequence: k.sequence.unwrap_or(0),
             })
         }
         Some(6) => {
-            let d = Disconnect::decode(single(bytes, 6, 5)?.as_slice())
-                .map_err(|_| WireError::Invalid)?;
+            let d = Disconnect::decode(v1.only_field(6, 5)?).map_err(|_| WireError::Invalid)?;
             Ok(Control::Disconnect {
                 request: d.request.unwrap_or(false),
                 ack: d.ack.unwrap_or(false),
             })
         }
         Some(12) => {
-            let r = UpgradeRetry::decode(single(bytes, 12, 11)?.as_slice())
-                .map_err(|_| WireError::Invalid)?;
+            let r = UpgradeRetry::decode(v1.only_field(12, 11)?).map_err(|_| WireError::Invalid)?;
             if r.mediums.len() > 32 {
                 return Err(WireError::Size);
             }
@@ -169,7 +169,7 @@ pub fn control(bytes: &[u8]) -> Result<Control, WireError> {
 }
 /// Safe protocol discriminator only; no payload or endpoint values are exposed.
 pub fn diagnostic_frame_type(bytes: &[u8]) -> Option<i32> {
-    decode(bytes).ok()?.v1?.kind
+    decode_v1(bytes, crate::MAX_FRAME_BYTES).ok()?.kind
 }
 /// Advertise only the implemented Wi-Fi LAN medium in a request or response.
 /// This exchanges capabilities; it does not connect or accept an upgrade.
@@ -258,8 +258,8 @@ struct V1 {
     retry: Option<Vec<u8>>,
 }
 impl V1 {
-    fn fields(&self) -> [&Option<Vec<u8>>; 12] {
-        [
+    fn only_field(&self, kind: i32, index: usize) -> Result<&[u8], WireError> {
+        let fields = [
             &self.request,
             &self.response,
             &self.payload,
@@ -272,30 +272,27 @@ impl V1 {
             &self.resume,
             &self.reconnect,
             &self.retry,
-        ]
+        ];
+        if self.kind != Some(kind)
+            || fields
+                .iter()
+                .enumerate()
+                .any(|(i, f)| i != index && f.is_some())
+        {
+            return Err(WireError::Invalid);
+        }
+        fields[index].as_deref().ok_or(WireError::Invalid)
     }
 }
-fn decode(bytes: &[u8]) -> Result<Frame, WireError> {
-    if bytes.len() > crate::secure::MAX_PLAINTEXT {
+fn decode_v1(bytes: &[u8], max: usize) -> Result<V1, WireError> {
+    if bytes.len() > max {
         return Err(WireError::Size);
     }
     let f = Frame::decode(bytes).map_err(|_| WireError::Invalid)?;
     if f.version != Some(1) {
         return Err(WireError::Unsupported);
     }
-    Ok(f)
-}
-fn single(bytes: &[u8], kind: i32, field: usize) -> Result<Vec<u8>, WireError> {
-    let v = decode(bytes)?.v1.ok_or(WireError::Invalid)?;
-    if v.kind != Some(kind)
-        || v.fields()
-            .iter()
-            .enumerate()
-            .any(|(i, f)| i != field && f.is_some())
-    {
-        return Err(WireError::Invalid);
-    }
-    v.fields()[field].clone().ok_or(WireError::Invalid)
+    f.v1.ok_or(WireError::Invalid)
 }
 fn envelope(kind: i32, field: usize, bytes: Vec<u8>) -> Vec<u8> {
     let mut v = V1 {
@@ -388,6 +385,26 @@ struct Path {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn larger_payload_envelopes_do_not_widen_transport_control_bounds() {
+        let payload = vec![0x5a; crate::secure::MAX_PLAINTEXT + 1];
+        let mut frame = Frame {
+            version: Some(1),
+            v1: Some(V1 {
+                kind: Some(3),
+                payload: Some(payload),
+                ..Default::default()
+            }),
+        };
+        assert_eq!(control(&frame.encode_to_vec()).unwrap(), Control::Payload);
+        frame.v1.as_mut().unwrap().keep = Some(Vec::new());
+        assert!(matches!(
+            control(&frame.encode_to_vec()),
+            Err(WireError::Invalid)
+        ));
+        let control_frame = envelope(5, 4, vec![0; crate::secure::MAX_PLAINTEXT + 1]);
+        assert!(matches!(control(&control_frame), Err(WireError::Size)));
+    }
     #[test]
     fn upgrade_retry_is_a_capability_query_and_never_a_new_network_path() {
         assert_eq!(

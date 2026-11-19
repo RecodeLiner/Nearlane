@@ -1,4 +1,4 @@
-//! Application state shared by CLI and Qt, with explicit private-mode gating.
+//! Application state for the CLI and desktop, with explicit private-mode gating.
 use nearlane_core::Text;
 mod certificates;
 mod discovery;

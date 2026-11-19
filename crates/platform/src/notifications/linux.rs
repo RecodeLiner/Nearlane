@@ -45,11 +45,15 @@ pub(super) async fn run(
     if cancel.load(Ordering::Acquire) {
         return Err(NotificationError::Cancelled);
     }
+    run_on_proxy(request, cancel, shown, &server().await?).await
+}
+
+async fn server() -> Result<Proxy<'static>, NotificationError> {
     let connection = tokio::time::timeout(Duration::from_secs(2), Connection::session())
         .await
         .map_err(|_| NotificationError::Unavailable)?
         .map_err(|_| NotificationError::Unavailable)?;
-    let proxy = tokio::time::timeout(
+    tokio::time::timeout(
         Duration::from_secs(2),
         Proxy::new(
             &connection,
@@ -60,8 +64,12 @@ pub(super) async fn run(
     )
     .await
     .map_err(|_| NotificationError::Unavailable)?
-    .map_err(|_| NotificationError::Unavailable)?;
-    run_on_proxy(request, cancel, shown, &proxy).await
+    .map_err(|_| NotificationError::Unavailable)
+}
+
+pub(super) async fn file_saved(title: &str, body: &str) -> Result<(), NotificationError> {
+    present(&server().await?, title, body, vec![], 6_000).await?;
+    Ok(())
 }
 
 async fn run_on_proxy(
@@ -96,31 +104,7 @@ async fn run_on_proxy(
         request.decline.as_str(),
     ];
     let body = request.body(caps.iter().any(|c| c == "body-markup"));
-    let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
-    hints.insert("desktop-entry", Value::from("org.nearlane.Nearlane"));
-    hints.insert("category", Value::from("transfer"));
-    let id: u32 = tokio::time::timeout(
-        Duration::from_secs(2),
-        proxy.call(
-            "Notify",
-            &(
-                "Nearlane",
-                0_u32,
-                "folder-download",
-                request.title.as_str(),
-                body.as_str(),
-                buttons,
-                hints,
-                55_000_i32,
-            ),
-        ),
-    )
-    .await
-    .map_err(|_| NotificationError::Unavailable)?
-    .map_err(|_| NotificationError::Unavailable)?;
-    if id == 0 {
-        return Err(NotificationError::Unavailable);
-    }
+    let id = present(proxy, &request.title, &body, buttons, 55_000).await?;
     shown.store(true, Ordering::Release);
     let deadline = Instant::now() + Duration::from_secs(55);
     let outcome = loop {
@@ -150,6 +134,42 @@ async fn run_on_proxy(
     };
     let _ = tokio::time::timeout(Duration::from_secs(1), close).await;
     outcome
+}
+
+async fn present(
+    proxy: &Proxy<'_>,
+    title: &str,
+    body: &str,
+    buttons: Vec<&str>,
+    expires_ms: i32,
+) -> Result<u32, NotificationError> {
+    let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
+    hints.insert("desktop-entry", Value::from("org.nearlane.Nearlane"));
+    hints.insert("category", Value::from("transfer"));
+    let id: u32 = tokio::time::timeout(
+        Duration::from_secs(2),
+        proxy.call(
+            "Notify",
+            &(
+                "Nearlane",
+                0_u32,
+                "folder-download",
+                title,
+                body,
+                buttons,
+                hints,
+                expires_ms,
+            ),
+        ),
+    )
+    .await
+    .map_err(|_| NotificationError::Unavailable)?
+    .map_err(|_| NotificationError::Unavailable)?;
+    if id == 0 {
+        Err(NotificationError::Unavailable)
+    } else {
+        Ok(id)
+    }
 }
 
 #[cfg(test)]

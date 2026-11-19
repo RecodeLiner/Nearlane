@@ -144,6 +144,112 @@ fn existing_destination_is_never_replaced_and_staging_is_removed() {
 }
 
 #[test]
+fn android_sized_image_chunks_save_only_after_verified_consent_and_exact_eof() {
+    use nearlane_protocol::wire::{PayloadChunk, PayloadKind};
+    // Leave room for both wire envelopes in the near-limit test frame.
+    let large_block = nearlane_protocol::MAX_FRAME_BYTES - 1024;
+    for (length, block) in [(91_458, 91_458), (large_block + 17, large_block)] {
+        let directory = tempfile::tempdir().unwrap();
+        let (receiver, receiver_public) = identity("Synthetic PC");
+        let (sender, sender_public) = identity("Synthetic phone");
+        let state = Arc::new(Mutex::new(State {
+            phase: ReceivePhase::Starting,
+            offer: None,
+        }));
+        let (decision, decisions) = mpsc::sync_channel(1);
+        let context = Context {
+            identity: receiver,
+            certificates: vec![sender_public],
+            directory: directory.path().into(),
+            stop: Cancellation::default(),
+            state: Arc::clone(&state),
+            decisions,
+        };
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let receive = thread::spawn(move || context.receive(listener.accept().unwrap().0));
+        let data = (0..length).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+        let expected = data.clone();
+        let send = thread::spawn(move || {
+            let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).unwrap();
+            let request = nearlane_protocol::connection::request(
+                b"TEST",
+                &nearlane_protocol::connection::private_endpoint_info(sender.advertisement),
+                7,
+            )
+            .unwrap();
+            let channel =
+                SecureChannel::initiate_nearby(DeadlineSocket::for_test(stream), &request).unwrap();
+            let mut session = Session::new(channel, Cancellation::default());
+            session
+                .verify(&sender.certificate, &receiver_public, PeerRole::Sender)
+                .unwrap();
+            let offer = crate::FileOffer {
+                name: "synthetic.jpg".into(),
+                size: length as u64,
+                payload_id: session.reserve_id().unwrap(),
+                attachment_id: session.reserve_id().unwrap(),
+                mime_type: "image/jpeg".into(),
+            };
+            session
+                .send_bytes(wire::encode_share(&ShareMessage::Introduction(offer.clone())).unwrap())
+                .unwrap();
+            assert_eq!(
+                wire::decode_share(&session.read_bytes().unwrap()).unwrap(),
+                ShareMessage::Accepted
+            );
+            session.begin_file_transfer();
+            let mut offset = 0;
+            let mut index = 0;
+            for bytes in data.chunks(block) {
+                session
+                    .send_test_chunk(&PayloadChunk {
+                        id: offer.payload_id,
+                        kind: PayloadKind::File,
+                        total_size: offer.size,
+                        offset,
+                        index,
+                        body: bytes.to_vec(),
+                        last: false,
+                        file_name: Some(offer.name.clone()),
+                        parent_folder: None,
+                    })
+                    .unwrap();
+                offset += bytes.len() as u64;
+                index += 1;
+            }
+            session
+                .send_test_chunk(&PayloadChunk {
+                    id: offer.payload_id,
+                    kind: PayloadKind::File,
+                    total_size: offer.size,
+                    offset,
+                    index,
+                    body: Vec::new(),
+                    last: true,
+                    file_name: Some(offer.name),
+                    parent_folder: None,
+                })
+                .unwrap();
+            session.wait_file_ack(offer.payload_id).unwrap();
+            session.finish();
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while state.lock().unwrap().phase != ReceivePhase::AwaitingConsent {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+        decision.send(true).unwrap();
+        let saved = receive.join().unwrap().unwrap();
+        send.join().unwrap();
+        assert_eq!(saved.summary.bytes, length as u64);
+        assert_eq!(saved.summary.sha256, Sha256::digest(&expected).as_slice());
+        assert_eq!(std::fs::read(saved.path).unwrap(), expected);
+    }
+}
+
+#[test]
 fn file_bytes_before_local_consent_are_rejected_without_a_temporary_file() {
     let directory = tempfile::tempdir().unwrap();
     let (receiver, receiver_public) = identity("PC");
